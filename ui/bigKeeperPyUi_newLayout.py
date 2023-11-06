@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'bigKeeperPyUi_newLayout_v132.ui'
+## Form generated from reading UI file 'bigKeeperPyUi_newLayout_v136.ui'
 ##
 ## Created by: Qt User Interface Compiler version 5.15.2
 ##
@@ -17,7 +17,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(432, 829)
+        MainWindow.resize(448, 829)
         MainWindow.setMinimumSize(QSize(432, 829))
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
@@ -104,29 +104,24 @@ class Ui_MainWindow(object):
 
         self.tabWidget = QTabWidget(self.centralwidget)
         self.tabWidget.setObjectName(u"tabWidget")
+        self.tabWidget.setMinimumSize(QSize(406, 0))
         self.tab_currentOpen = QWidget()
         self.tab_currentOpen.setObjectName(u"tab_currentOpen")
         self.verticalLayout_12 = QVBoxLayout(self.tab_currentOpen)
         self.verticalLayout_12.setObjectName(u"verticalLayout_12")
         self.horizontalLayout_14 = QHBoxLayout()
         self.horizontalLayout_14.setObjectName(u"horizontalLayout_14")
-        self.verticalGroupBox_2 = QGroupBox(self.tab_currentOpen)
-        self.verticalGroupBox_2.setObjectName(u"verticalGroupBox_2")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.verticalGroupBox_2.sizePolicy().hasHeightForWidth())
-        self.verticalGroupBox_2.setSizePolicy(sizePolicy1)
-        self.verticalGroupBox_2.setMinimumSize(QSize(0, 270))
-        self.verticalLayout_14 = QVBoxLayout(self.verticalGroupBox_2)
+        self.verticalLayout_14 = QVBoxLayout()
         self.verticalLayout_14.setObjectName(u"verticalLayout_14")
-        self.verticalLayout_14.setSizeConstraint(QLayout.SetDefaultConstraint)
-        self.verticalSpacer_5 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
+        self.verticalSpacer_5 = QSpacerItem(20, 100, QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         self.verticalLayout_14.addItem(self.verticalSpacer_5)
 
-        self.pushButton_versionUp = QPushButton(self.verticalGroupBox_2)
+        self.pushButton_versionUp = QPushButton(self.tab_currentOpen)
         self.pushButton_versionUp.setObjectName(u"pushButton_versionUp")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.pushButton_versionUp.sizePolicy().hasHeightForWidth())
         self.pushButton_versionUp.setSizePolicy(sizePolicy1)
         self.pushButton_versionUp.setMinimumSize(QSize(170, 23))
@@ -136,14 +131,10 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_14.addWidget(self.pushButton_versionUp)
 
-        self.verticalSpacer_6 = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Minimum)
-
-        self.verticalLayout_14.addItem(self.verticalSpacer_6)
-
         self.horizontalLayout_15 = QHBoxLayout()
         self.horizontalLayout_15.setObjectName(u"horizontalLayout_15")
-        self.horizontalLayout_15.setSizeConstraint(QLayout.SetMinAndMaxSize)
-        self.pushButton_revive = QPushButton(self.verticalGroupBox_2)
+        self.horizontalLayout_15.setSizeConstraint(QLayout.SetFixedSize)
+        self.pushButton_revive = QPushButton(self.tab_currentOpen)
         self.pushButton_revive.setObjectName(u"pushButton_revive")
         sizePolicy1.setHeightForWidth(self.pushButton_revive.sizePolicy().hasHeightForWidth())
         self.pushButton_revive.setSizePolicy(sizePolicy1)
@@ -151,7 +142,7 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_15.addWidget(self.pushButton_revive)
 
-        self.pushButton_scnUpdate = QPushButton(self.verticalGroupBox_2)
+        self.pushButton_scnUpdate = QPushButton(self.tab_currentOpen)
         self.pushButton_scnUpdate.setObjectName(u"pushButton_scnUpdate")
         sizePolicy1.setHeightForWidth(self.pushButton_scnUpdate.sizePolicy().hasHeightForWidth())
         self.pushButton_scnUpdate.setSizePolicy(sizePolicy1)
@@ -162,40 +153,38 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_14.addLayout(self.horizontalLayout_15)
 
-        self.pushButton_getFrameRange = QPushButton(self.verticalGroupBox_2)
-        self.pushButton_getFrameRange.setObjectName(u"pushButton_getFrameRange")
+        self.pushButton_NukeReadNodeTempTool = QPushButton(self.tab_currentOpen)
+        self.pushButton_NukeReadNodeTempTool.setObjectName(u"pushButton_NukeReadNodeTempTool")
         sizePolicy2 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         sizePolicy2.setHorizontalStretch(0)
         sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.pushButton_getFrameRange.sizePolicy().hasHeightForWidth())
-        self.pushButton_getFrameRange.setSizePolicy(sizePolicy2)
-
-        self.verticalLayout_14.addWidget(self.pushButton_getFrameRange)
-
-        self.pushButton_NukeReadNodeTempTool = QPushButton(self.verticalGroupBox_2)
-        self.pushButton_NukeReadNodeTempTool.setObjectName(u"pushButton_NukeReadNodeTempTool")
         sizePolicy2.setHeightForWidth(self.pushButton_NukeReadNodeTempTool.sizePolicy().hasHeightForWidth())
         self.pushButton_NukeReadNodeTempTool.setSizePolicy(sizePolicy2)
 
         self.verticalLayout_14.addWidget(self.pushButton_NukeReadNodeTempTool)
 
+        self.pushButton_getFrameRange = QPushButton(self.tab_currentOpen)
+        self.pushButton_getFrameRange.setObjectName(u"pushButton_getFrameRange")
+        sizePolicy2.setHeightForWidth(self.pushButton_getFrameRange.sizePolicy().hasHeightForWidth())
+        self.pushButton_getFrameRange.setSizePolicy(sizePolicy2)
 
-        self.horizontalLayout_14.addWidget(self.verticalGroupBox_2)
+        self.verticalLayout_14.addWidget(self.pushButton_getFrameRange)
 
-        self.verticalLayout_13 = QVBoxLayout()
-        self.verticalLayout_13.setObjectName(u"verticalLayout_13")
+
+        self.horizontalLayout_14.addLayout(self.verticalLayout_14)
+
         self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
-        self.verticalLayout_13.addItem(self.horizontalSpacer)
-
-
-        self.horizontalLayout_14.addLayout(self.verticalLayout_13)
+        self.horizontalLayout_14.addItem(self.horizontalSpacer)
 
 
         self.verticalLayout_12.addLayout(self.horizontalLayout_14)
 
         self.tabWidget_2 = QTabWidget(self.tab_currentOpen)
         self.tabWidget_2.setObjectName(u"tabWidget_2")
+        sizePolicy2.setHeightForWidth(self.tabWidget_2.sizePolicy().hasHeightForWidth())
+        self.tabWidget_2.setSizePolicy(sizePolicy2)
+        self.tabWidget_2.setMinimumSize(QSize(406, 535))
         font1 = QFont()
         font1.setStyleStrategy(QFont.PreferAntialias)
         self.tabWidget_2.setFont(font1)
@@ -206,7 +195,7 @@ class Ui_MainWindow(object):
         self.tabNuke.setObjectName(u"tabNuke")
         self.pushButton_closeNukeScript = QPushButton(self.tabNuke)
         self.pushButton_closeNukeScript.setObjectName(u"pushButton_closeNukeScript")
-        self.pushButton_closeNukeScript.setGeometry(QRect(0, 250, 121, 23))
+        self.pushButton_closeNukeScript.setGeometry(QRect(0, 220, 121, 23))
         self.pushButton_genWriteCompMaster = QPushButton(self.tabNuke)
         self.pushButton_genWriteCompMaster.setObjectName(u"pushButton_genWriteCompMaster")
         self.pushButton_genWriteCompMaster.setGeometry(QRect(0, 150, 121, 23))
@@ -304,7 +293,7 @@ class Ui_MainWindow(object):
         self.pushButton_hieroPlayerOther.setGeometry(QRect(290, 60, 16, 31))
         self.pushButton_LaunchCpuCoreController = QPushButton(self.groupBox)
         self.pushButton_LaunchCpuCoreController.setObjectName(u"pushButton_LaunchCpuCoreController")
-        self.pushButton_LaunchCpuCoreController.setGeometry(QRect(50, 160, 181, 31))
+        self.pushButton_LaunchCpuCoreController.setGeometry(QRect(50, 150, 181, 31))
         self.pushButton_LaunchNuke13_0_v2.raise_()
         self.pushButton_LaunchNukeStudio13_0_v2.raise_()
         self.pushButton_LaunchNukeX13_0_v2.raise_()
@@ -455,7 +444,39 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_5.addLayout(self.horizontalLayout_3)
 
-        self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.horizontalLayout_11 = QHBoxLayout()
+        self.horizontalLayout_11.setObjectName(u"horizontalLayout_11")
+        self.label_thumbSeq = QLabel(self.tab_shotBrowser)
+        self.label_thumbSeq.setObjectName(u"label_thumbSeq")
+        sizePolicy4 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.label_thumbSeq.sizePolicy().hasHeightForWidth())
+        self.label_thumbSeq.setSizePolicy(sizePolicy4)
+        self.label_thumbSeq.setMinimumSize(QSize(123, 98))
+
+        self.horizontalLayout_11.addWidget(self.label_thumbSeq)
+
+        self.label_thumbShot = QLabel(self.tab_shotBrowser)
+        self.label_thumbShot.setObjectName(u"label_thumbShot")
+        sizePolicy4.setHeightForWidth(self.label_thumbShot.sizePolicy().hasHeightForWidth())
+        self.label_thumbShot.setSizePolicy(sizePolicy4)
+        self.label_thumbShot.setMinimumSize(QSize(123, 98))
+
+        self.horizontalLayout_11.addWidget(self.label_thumbShot)
+
+        self.label_thumbTask = QLabel(self.tab_shotBrowser)
+        self.label_thumbTask.setObjectName(u"label_thumbTask")
+        sizePolicy4.setHeightForWidth(self.label_thumbTask.sizePolicy().hasHeightForWidth())
+        self.label_thumbTask.setSizePolicy(sizePolicy4)
+        self.label_thumbTask.setMinimumSize(QSize(123, 98))
+
+        self.horizontalLayout_11.addWidget(self.label_thumbTask)
+
+
+        self.verticalLayout_5.addLayout(self.horizontalLayout_11)
+
+        self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Preferred)
 
         self.verticalLayout_5.addItem(self.verticalSpacer_2)
 
@@ -756,6 +777,11 @@ class Ui_MainWindow(object):
 
         self.verticalLayout.addWidget(self.tabWidget)
 
+        self.label_23 = QLabel(self.centralwidget)
+        self.label_23.setObjectName(u"label_23")
+
+        self.verticalLayout.addWidget(self.label_23)
+
         self.horizontalSlider = QSlider(self.centralwidget)
         self.horizontalSlider.setObjectName(u"horizontalSlider")
         self.horizontalSlider.setMaximum(1)
@@ -770,7 +796,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 432, 21))
+        self.menubar.setGeometry(QRect(0, 0, 448, 21))
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -779,7 +805,7 @@ class Ui_MainWindow(object):
         self.retranslateUi(MainWindow)
 
         self.tabWidget.setCurrentIndex(0)
-        self.tabWidget_2.setCurrentIndex(5)
+        self.tabWidget_2.setCurrentIndex(4)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -819,15 +845,15 @@ class Ui_MainWindow(object):
 #endif // QT_CONFIG(tooltip)
         self.pushButton_scnUpdate.setText(QCoreApplication.translate("MainWindow", u"Scene Update", None))
 #if QT_CONFIG(tooltip)
-        self.pushButton_getFrameRange.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_getFrameRange", None))
-#endif // QT_CONFIG(tooltip)
-        self.pushButton_getFrameRange.setText(QCoreApplication.translate("MainWindow", u"Get Frame Range\n"
-"- output setting -", None))
-#if QT_CONFIG(tooltip)
         self.pushButton_NukeReadNodeTempTool.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_NukeReadNodeTempTool", None))
 #endif // QT_CONFIG(tooltip)
         self.pushButton_NukeReadNodeTempTool.setText(QCoreApplication.translate("MainWindow", u"Get Frame Range\n"
 "- Nuke Read Nodes -", None))
+#if QT_CONFIG(tooltip)
+        self.pushButton_getFrameRange.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_getFrameRange", None))
+#endif // QT_CONFIG(tooltip)
+        self.pushButton_getFrameRange.setText(QCoreApplication.translate("MainWindow", u"Get Frame Range\n"
+"- output setting -", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tabMaya), QCoreApplication.translate("MainWindow", u"Maya", None))
 #if QT_CONFIG(tooltip)
         self.pushButton_closeNukeScript.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_closeNukeScript", None))
@@ -983,6 +1009,18 @@ class Ui_MainWindow(object):
 #endif // QT_CONFIG(tooltip)
         self.pushButton_newTask.setText(QCoreApplication.translate("MainWindow", u"New Task", None))
 #if QT_CONFIG(tooltip)
+        self.label_thumbSeq.setToolTip(QCoreApplication.translate("MainWindow", u"label_thumbSeq", None))
+#endif // QT_CONFIG(tooltip)
+        self.label_thumbSeq.setText(QCoreApplication.translate("MainWindow", u"label_thumbSeq", None))
+#if QT_CONFIG(tooltip)
+        self.label_thumbShot.setToolTip(QCoreApplication.translate("MainWindow", u"label_thumbShot", None))
+#endif // QT_CONFIG(tooltip)
+        self.label_thumbShot.setText(QCoreApplication.translate("MainWindow", u"label_thumb", None))
+#if QT_CONFIG(tooltip)
+        self.label_thumbTask.setToolTip(QCoreApplication.translate("MainWindow", u"label_thumbTask", None))
+#endif // QT_CONFIG(tooltip)
+        self.label_thumbTask.setText(QCoreApplication.translate("MainWindow", u"label_thumbTask", None))
+#if QT_CONFIG(tooltip)
         self.lineEdit_Location.setToolTip(QCoreApplication.translate("MainWindow", u"lineEdit_Location", None))
 #endif // QT_CONFIG(tooltip)
 #if QT_CONFIG(tooltip)
@@ -1043,6 +1081,7 @@ class Ui_MainWindow(object):
 #endif // QT_CONFIG(tooltip)
         self.pushButton_20.setText(QCoreApplication.translate("MainWindow", u"explore...", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_assetBrowser), QCoreApplication.translate("MainWindow", u"developing Browser", None))
+        self.label_23.setText(QCoreApplication.translate("MainWindow", u"Qt Ui v134", None))
 #if QT_CONFIG(tooltip)
         self.horizontalSlider.setToolTip(QCoreApplication.translate("MainWindow", u"horizontalSlider", None))
 #endif // QT_CONFIG(tooltip)

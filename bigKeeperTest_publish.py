@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20220713a'
+winTitlePrefix = 'BigKeeper_20231107'
 
 # path of bigKeeperTest_publish : N:\BigKeeper
 # WIP of bigKeeperTest_publish : I:\iCloud~com~omz-software~Pythonista3\pySide2UI\wip
@@ -208,6 +208,13 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         self.setWindowTitle(WindowTitleName)
         self.setWindowIcon(QIcon(os.path.join(iconPath, 'standalone.png')))
         self.prerendKeyword = ""
+
+        '''
+        if in_houdini:
+            # temp workaround before solve the problem to have Singleton in houdini !!!!
+            # to avoid mulitple bigkeeper instance loaded, use Window Modality to limit the user.
+            self.setWindowModality(Qt.ApplicationModal)
+        '''
 
         #self.label_9.setPixmap(QPixmap(r"N:/bpPipeline/bigKeeperPy/bigKeeperPyIcon_developer.jpg"))
         self.label_9.setPixmap(QPixmap(bannerImage))
