@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20231107'
+winTitlePrefix = 'BigKeeper_20231108'
 
 # path of bigKeeperTest_publish : N:\BigKeeper
 # WIP of bigKeeperTest_publish : I:\iCloud~com~omz-software~Pythonista3\pySide2UI\wip
@@ -215,6 +215,9 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             # to avoid mulitple bigkeeper instance loaded, use Window Modality to limit the user.
             self.setWindowModality(Qt.ApplicationModal)
         '''
+        if in_houdini:
+            self.setParent(hou.ui.mainQtWindow(), Qt.Window)
+
 
         #self.label_9.setPixmap(QPixmap(r"N:/bpPipeline/bigKeeperPy/bigKeeperPyIcon_developer.jpg"))
         self.label_9.setPixmap(QPixmap(bannerImage))
@@ -1376,12 +1379,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                     QMessageBox.information(self, 'WARNING !!! ', theMessage)
                 else:
                     theMessage = 'WIP version up, Done.\n\nbigK_Write nodes --- version numbers aligned.\nbigK_ModifyMetadata nodes --- fps metadata aligned to Project Setting.'
-                    QMessageBox.information(self, 'version up33 ', theMessage)
+                    QMessageBox.information(self, '-version up-', theMessage)
 
 
         elif in_houdini:
             hou.hipFile.saveAndIncrementFileName()
-            hou.ui.displayMessage('Done.', buttons=('OK',), default_choice=0, close_choice=0)
+            #hou.ui.displayMessage('Done.', buttons=('OK',), default_choice=0, close_choice=0)
+            theMessage = 'WIP version up, Done.'
+            QMessageBox.information(self, '-version up-', theMessage)
 
 
     def myDialogShow2(self, inTitle = 'inTitle', inMessage = 'inMessage'):
