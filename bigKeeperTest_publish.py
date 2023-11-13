@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20231108'
+winTitlePrefix = 'BigKeeper_20231111a'
 
 # path of bigKeeperTest_publish : N:\BigKeeper
 # WIP of bigKeeperTest_publish : I:\iCloud~com~omz-software~Pythonista3\pySide2UI\wip
@@ -197,7 +197,10 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             print(inText)
 
     def SoftwareMainWindow(self):
-        self.main_window_ptr = QApplication.activeWindow()
+        if not in_houdini:
+            self.main_window_ptr = QApplication.activeWindow()
+        else:
+            self.main_window_ptr = hou.qt.mainWindow()
         return self.main_window_ptr
 
     def __init__(self):
