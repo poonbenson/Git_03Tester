@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20260906f'
+winTitlePrefix = 'BigKeeper_20260906g'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -179,6 +179,12 @@ pinnedProjectNames = ('BigAssetCollections',)
 visualBoardExtension = '.pur'
 # The PureRef file the Visual Board buttons open. The board is named after the folder it sits
 # in, and it is opened through its Windows file association.
+
+visualBoardStorageRootPath = r'K:\z_VisualBoard'
+# Every Visual Board lives here, mirroring the project tree under its own project folder :
+# K:\z_VisualBoard\ChanFilm\lib\bldg5060s\bldg5060s.pur. The matching folder on the job drive
+# keeps a Windows shortcut pointing back here. Nothing checks that K: is mapped -- an unmapped
+# drive fails on the spot with its own error.
 
 freeLayerMaskType = 'FreeLayerMask'
 # The inType of the Free LayerMask Write node, and the tail of its version folder name :
@@ -2839,15 +2845,17 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         # Each button owns one level and stays there, so the Seq row still opens the seq board
         # after the user has clicked all the way down to a task. The path is rebuilt from this
-        # tab's own listWidgets : selProjScnShotTaskPath, selShot and selTask are shared by both
-        # tabs, so reading them here would open the other tab's folder.
+        # tab's own listWidgets because the state variables only carry the level last clicked,
+        # and taskLevelConvert only reaches the task level.
         if inType == 'typeScene':
             visualBoardRootPath = self.selProjScnPath
+            visualBoardRootName = self.subDict[self.selProjScnCode]
             listWidgetSequence = self.listWidget_1
             listWidgetShot = self.listWidget_2
             listWidgetTask = self.listWidget_3
         elif inType == 'typeLib':
             visualBoardRootPath = self.selProjLibPath
+            visualBoardRootName = self.subDict[self.selProjLibCode]
             listWidgetSequence = self.listWidget_AssetType
             listWidgetShot = self.listWidget_Asset
             listWidgetTask = self.listWidget_AssetTask
@@ -2874,29 +2882,63 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         if inLevel == 'levelTask':
             folderNames.insert(2, 'components')
 
-        visualBoardFolderPath = os.path.join(visualBoardRootPath, *folderNames)
+        # The board itself lives in the storage tree, which mirrors the project tree level for
+        # level under its own project folder. The folder on the job drive only keeps a shortcut,
+        # so one board is never open from two places at once.
+        originalFolderPath = os.path.join(visualBoardRootPath, *folderNames)
+        storageFolderPath = os.path.join(visualBoardStorageRootPath, self.selProj, visualBoardRootName, *folderNames)
 
         # The board is named after the folder it sits in : tvcSeq\tvcSeq.pur, sc010\sc010.pur,
-        # comp\comp.pur, and at the top level scenes\scenes.pur or lib\lib.pur.
-        visualBoardName = os.path.basename(visualBoardFolderPath) + visualBoardExtension
-        visualBoardFullPath = os.path.join(visualBoardFolderPath, visualBoardName)
-        self.printEcho(visualBoardFullPath)
+        # comp\comp.pur, and at the top level scenes\scenes.pur or lib\lib.pur. Both trees end on
+        # the same folder, so the name is the same on both sides.
+        visualBoardName = os.path.basename(storageFolderPath) + visualBoardExtension
+        storageFullPath = os.path.join(storageFolderPath, visualBoardName)
+        originalFullPath = os.path.join(originalFolderPath, visualBoardName)
 
-        if not os.path.isfile(visualBoardFullPath):
-            answer = QMessageBox.question(self, 'Visual Board',
-                                          'There is no Visual Board here yet :\n\n{}\n\nCreate < {} > ?'.format(
-                                              visualBoardFolderPath, visualBoardName),
-                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        # <name>.pur.lnk, so Explorer shows it as <name>.pur with file extensions hidden.
+        shortcutFullPath = os.path.join(originalFolderPath, visualBoardName + '.lnk')
+        self.printEcho(storageFullPath)
 
-            if answer == QMessageBox.No:
-                println('Visual Board is not created. Nothing is opened.')
-                return
+        if not os.path.isfile(storageFullPath):
 
-            open(visualBoardFullPath, 'w').close()
-            println('Visual Board created : {}'.format(visualBoardFullPath))
+            # A board made before the storage tree existed moves there on the first press, with no
+            # question asked : it is the same board, only somewhere else.
+            boardToMovePath = ''
+
+            if os.path.isfile(originalFullPath):
+                boardToMovePath = originalFullPath
+            else:
+                answer = QMessageBox.question(self, 'Visual Board',
+                                              'There is no Visual Board here yet :\n\n{}\n\nCreate < {} > ?'.format(
+                                                  storageFolderPath, visualBoardName),
+                                              QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+                if answer == QMessageBox.No:
+                    println('Visual Board is not created. Nothing is opened.')
+                    return
+
+            # The storage tree is built as it is used, so every level is made on its first press.
+            if not os.path.isdir(storageFolderPath):
+                os.makedirs(storageFolderPath)
+
+            if boardToMovePath != '':
+                shutil.move(boardToMovePath, storageFullPath)
+                println('Visual Board moved : {}    >>>    {}'.format(boardToMovePath, storageFullPath))
+            else:
+                open(storageFullPath, 'w').close()
+                println('Visual Board created : {}'.format(storageFullPath))
+
+        # Rebuilt whenever it is missing, so a board moved by hand still gets one back. Same
+        # Shortcut.exe the RV comment folder uses :
+        # Shortcut.exe /f:"<the .lnk>" /a:c /t:"<what it points at>"
+        if not os.path.isfile(shortcutFullPath):
+            shortcutExecutablePath = os.path.normpath(os.path.join(externalToolPath, 'shortCut', 'Shortcut.exe'))
+            shortcutCommand = shortcutExecutablePath + ' /f:"' + shortcutFullPath + '" /a:c /t:"' + storageFullPath + '"'
+            self.printEcho('shortcutCommand :' + shortcutCommand)
+            os.system(shortcutCommand)
 
         # .pur opens through its Windows file association.
-        os.startfile(visualBoardFullPath)
+        os.startfile(storageFullPath)
 
     def openCurrentOpeningLocationPath(self):
         println('\ndef >>>>> openCurrentOpeningLocationPath')
