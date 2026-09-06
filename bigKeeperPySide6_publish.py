@@ -1602,7 +1602,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             self.sceneUpdateUi.pushButton_exec_5.setVisible(False)
 
             self.sceneUpdateUi.TextLabel_2.setText('Click ::: Zoom to the node\n< Explore > Button ::: Open footage folder in explorer.\n\n ')
-            self.sceneUpdateUi.TextLabel_3.setText('Color Code\nRed    ::: Out Dated\nGreen ::: Up-to-date\nBlue    ::: Freeze\n')
+            self.sceneUpdateUi.TextLabel_3.setText('Color Code\nRed    ::: Out Dated\nGreen ::: Up-to-date\nBlue    ::: Freeze\nYellow ::: Path Not Found\n')
             self.sceneUpdateUi.lineEdit.setText('--- click on the above row to show the path here ---')
 
             self.sceneUpdateUi.pushButton.clicked.connect(openClickedItemLocationPath)
@@ -2024,16 +2024,21 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
 
             # use parent path to find all versions
+            # A Read node points at a folder that is not on disk any more often enough : the shot
+            # was renamed, the footage tree was moved, an outside vendor path was never on this
+            # network, the drive is not mapped. os.listdir raised FileNotFoundError on it and
+            # killed the caller's whole loop, so the dialog never opened for any node.
+            # < None, None > means < cannot be judged >. The caller lists such a node as
+            # pathNotFound rather than guessing a version for it.
+            if not os.path.isdir(inVerPathObjLong.parent):
+                println('Version parent folder is not there : {}'.format(inVerPathObjLong.parent))
+                return None, None
+
             listFolders = os.listdir(inVerPathObjLong.parent)
             listFolders.sort()
             self.printEcho(listFolders)
 
 
-
-            # check path match without Basename
-            #       find out index number of inVerBasename from the listFrolder
-            inVerBasenameIndex = listFolders.index(inVerBasename)
-            self.printEcho('inVerBasenameIndex : {}'.format(inVerBasenameIndex))
 
             inVerBasenameNoVersion = inVerBasename.removesuffix(inVer)
             if inVerBasenameNoVersion != inVerBasename:
@@ -2047,11 +2052,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
             latestVerPathPattern = None
 
+            # latestVerBaseName is assigned at the top of every pass of the for-loop below. An
+            # empty version folder never enters that loop, so it is set here as well.
+            latestVerBaseName = None
+
             # Reverse the List to start backward from the highest version
             listFolders.sort(reverse = True)
             for i in listFolders:
                 println('\ni : <folder> ' + i)
-                #compareBaseName = listFolders[i + (inVerBasenameIndex + 1)]
                 compareBaseName = i
                 latestVerBaseName = None
 
@@ -2213,8 +2221,9 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             self.printEcho('Latest WIP folder :')
             self.printEcho(latestVerPathPattern)
             self.printEcho(latestVerBaseName)
-            return latestVerPathPattern, str(latestVerBaseName)
-
+            # Not str(latestVerBaseName) any more : the caller needs a real None to tell
+            # < nothing matched > apart from a folder that is really called 'None'.
+            return latestVerPathPattern, latestVerBaseName
 
         def apply_filter():
             '''
@@ -2232,6 +2241,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
             outdatedCounter = 0
             FreezedCounter = 0
+            pathNotFoundCounter = 0
 
             for i in range(self.sceneUpdateUi.listWidget.count()):
 
@@ -2260,8 +2270,20 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                     item.setCheckState(Qt.Unchecked)
                     item.setFlags(Qt.NoItemFlags)
 
+                elif status == "pathNotFound":
+                    # Neither of the two filters describes this row, and hiding a footage that
+                    # is not on disk any more would be one more way of < Scene Update is not
+                    # working >. It stays on screen whatever the checkboxes say.
+                    is_visible = True
+                    item.setBackground(QColor(255, 200, 0, 90)) #RGBA 0-255
+                    item.setData(Qt.CheckStateRole, None)
+                    item.setFlags(Qt.NoItemFlags)
+                    pathNotFoundCounter += 1
+
+                # A missing path is worth more than a freeze mark, so the yellow row keeps its
+                # colour and keeps its checkbox away.
                 isNotFreezeStatus = item.data(role7NodeIsNotFreeze)
-                if isNotFreezeStatus == 'Freeze':
+                if isNotFreezeStatus == 'Freeze' and status != "pathNotFound":
                     item.setBackground(QColor(0, 150, 200, 75)) #RGBA 0-255
                     item.setCheckState(Qt.Unchecked)
                     item.setFlags(Qt.NoItemFlags)
@@ -2299,7 +2321,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                         # Hide or show the separator to match the item above it
                         separator_item.setHidden(not is_visible)
 
-            self.sceneUpdateUi.TextLabel.setText('Number of Out Dated Node : {}   (included {} freezed))'.format(outdatedCounter, FreezedCounter))
+            self.sceneUpdateUi.TextLabel.setText('Number of Out Dated Node : {}   (included {} freezed))   Path Not Found : {}'.format(outdatedCounter, FreezedCounter, pathNotFoundCounter))
 
         # Body ============================
 
@@ -2369,6 +2391,9 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         #                                           8 LatestVersion Fullpath                    > N:\mnt\job\24068PantenePokemon\WorkingFile\PantenePokemon\scenes\zzzToliet\bensonPipelineTest\components\lightPearl\images\five0010_lightPearl_wip_v0021\pearlA_rlyr
         #                                           9 LatestVersion Basename                    > five0010_lightPearl_wip_v0021
         #
+        #                                             8 and 9 are both None when isLatestVersion
+        #                                             could not judge the node : the footage
+        #                                             folder is gone, or nothing in it matches.
         #
         #                                           ]
 
@@ -2401,7 +2426,18 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             #println('\nisLatestVersion(keyNodeName, dictFoundVersionNodes.get(keyNodeName)[0], dictFoundVersionNodes.get(keyNodeName)[1], dictFoundVersionNodes.get(keyNodeName)[2], dictFoundVersionNodes.get(keyNodeName)[3])')
             #print(dictFoundVersionNodes.get(keyNodeName)[2])
             #print(os.path.normpath(dictFoundVersionNodes.get(keyNodeName)[2]))
-            latestVersionPath = isLatestVersion(keyNodeName, dictFoundVersionNodes.get(keyNodeName)[0], dictFoundVersionNodes.get(keyNodeName)[1],dictFoundVersionNodes.get(keyNodeName)[2], dictFoundVersionNodes.get(keyNodeName)[3])
+
+            # isLatestVersion reads the disk, so it meets whatever the artist left behind. The
+            # two known cases return < None, None > on their own, this try is for the rest :
+            # a permission error, a path that is a file where a folder is expected, a footage
+            # tree nobody expected. Before it, one bad node raised and killed this whole loop,
+            # and since self.sceneUpdateUi.show() sits after the loop the dialog never appeared
+            # at all - which is what the artists reported as < Scene Update is not working >.
+            try:
+                latestVersionPath = isLatestVersion(keyNodeName, dictFoundVersionNodes.get(keyNodeName)[0], dictFoundVersionNodes.get(keyNodeName)[1],dictFoundVersionNodes.get(keyNodeName)[2], dictFoundVersionNodes.get(keyNodeName)[3])
+            except Exception as theError:
+                println('< {} > cannot be judged : {} : {}'.format(keyNodeName, type(theError).__name__, theError))
+                latestVersionPath = None, None
 
 
             dictFoundVersionNodes[keyNodeName].append(latestVersionPath[0])
@@ -2437,30 +2473,47 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             '''
 
             showCurrentLongWithTail = str(dictFoundVersionNodes.get(keyNodeName)[4]).replace(os.sep, '/')
-            showNewLongWithTail     = str(dictFoundVersionNodes.get(keyNodeName)[8]).replace(os.sep, '/')
 
-            if showCurrentLongWithTail == showNewLongWithTail:
-                #upToDateFont = QFont()
-                #upToDateFont.setBold(False)
-                showStatus = "up-to-date"
-                item.setBackground(QColor(20, 250, 20, 20)) #RGBA 0-255
-                #item.setTextColor(QColor(20, 255, 20, 255)) #RGBA 0-255
-                #item.setFont(upToDateFont)
-
+            # [8] is None when isLatestVersion could not judge this node. It used to become the
+            # string 'None' here, which read as OutDated, arrived checked, and let
+            # < Update Selected > write the word None into the file knob. It gets its own
+            # status, its own colour and no checkbox instead.
+            # role5 is fed the current path, not a message : if the row ever does get checked,
+            # perSelectedAction then replaces the path with itself and changes nothing.
+            if dictFoundVersionNodes.get(keyNodeName)[8] is None:
+                showNewLongWithTail = showCurrentLongWithTail
+                showLatestBasename  = '--- path not found ---'
+                showStatus = "pathNotFound"
+                item.setBackground(QColor(255, 200, 0, 90)) #RGBA 0-255
+                item.setData(Qt.CheckStateRole, None)
+                item.setFlags(Qt.NoItemFlags)
 
             else:
-                outDatedFont = QFont()
-                outDatedFont.setBold(True)
-                showStatus = "OutDated"
-                item.setBackground(QColor(255, 10, 10, 125)) #RGBA 0-255
-                #item.setTextColor(QColor(250, 20, 20, 255)) #RGBA 0-255
-                item.setFont(outDatedFont)
+                showNewLongWithTail = str(dictFoundVersionNodes.get(keyNodeName)[8]).replace(os.sep, '/')
+                showLatestBasename  = dictFoundVersionNodes.get(keyNodeName)[9]
+
+                if showCurrentLongWithTail == showNewLongWithTail:
+                    #upToDateFont = QFont()
+                    #upToDateFont.setBold(False)
+                    showStatus = "up-to-date"
+                    item.setBackground(QColor(20, 250, 20, 20)) #RGBA 0-255
+                    #item.setTextColor(QColor(20, 255, 20, 255)) #RGBA 0-255
+                    #item.setFont(upToDateFont)
+
+
+                else:
+                    outDatedFont = QFont()
+                    outDatedFont.setBold(True)
+                    showStatus = "OutDated"
+                    item.setBackground(QColor(255, 10, 10, 125)) #RGBA 0-255
+                    #item.setTextColor(QColor(250, 20, 20, 255)) #RGBA 0-255
+                    item.setFont(outDatedFont)
 
             item.setData(roleStatus                 , showStatus)
             item.setData(role1Nodename              , keyNodeName)
             item.setData(role2CurrentBasename       , dictFoundVersionNodes.get(keyNodeName)[1])
             item.setData(role3CurrentLongWithTail   , showCurrentLongWithTail)
-            item.setData(role4LatestBasename        , dictFoundVersionNodes.get(keyNodeName)[9])
+            item.setData(role4LatestBasename        , showLatestBasename)
             item.setData(role5LatestLongWithTail    , showNewLongWithTail)
             item.setData(role6NodeClass             , dictFoundVersionNodes.get(keyNodeName)[6])
             item.setData(role7NodeIsNotFreeze       , dictFoundVersionNodes.get(keyNodeName)[7])
@@ -2475,7 +2528,6 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
             item.setData(role11DisplayText           , showText)
             item.setText(item.data(role11DisplayText))
-
 
 
 
