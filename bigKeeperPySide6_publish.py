@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20260906a'
+winTitlePrefix = 'BigKeeper_20260906c'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -2290,14 +2290,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                     FreezedCounter += 1
 
                     showText = (f'\n'
-                                f'< {item.data(role1Nodename)} >               [{item.data(role6NodeClass)}]               --{item.data(role7NodeIsNotFreeze)}--\n'
+                                f'< {item.data(role1Nodename)} >               [{item.data(role6NodeClass)}]               --{item.data(role7NodeIsNotFreeze)}--          {item.data(role8CurrentPathMissing)}\n'
                                 f'{item.data(role2CurrentBasename)}     :::     {item.data(role4LatestBasename)}\n'
                                 f'\n'
                                 f'Latest path : {item.data(role5LatestLongWithTail)}'
                                 f'\n')
                 else:
                     showText = (f'\n'
-                                f'< {item.data(role1Nodename)} >               [{item.data(role6NodeClass)}]\n'
+                                f'< {item.data(role1Nodename)} >               [{item.data(role6NodeClass)}]          {item.data(role8CurrentPathMissing)}\n'
                                 f'{item.data(role2CurrentBasename)}     :::     {item.data(role4LatestBasename)}\n'
                                 f'\n'
                                 f'Latest path : {item.data(role5LatestLongWithTail)}'
@@ -2411,6 +2411,11 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         counter = 0
 
+        # Every row that is wrong in a way the artist should know about writes two lines in here,
+        # and they are shown in one warning box after the dialog is up. The list dialog reports
+        # versions, this box reports footage that is simply not on disk.
+        warningLines = []
+
         roleStatus                  = Qt.UserRole
         role1Nodename               = Qt.UserRole + 1
         role2CurrentBasename        = Qt.UserRole + 2
@@ -2419,6 +2424,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         role5LatestLongWithTail     = Qt.UserRole + 5
         role6NodeClass              = Qt.UserRole + 6
         role7NodeIsNotFreeze        = Qt.UserRole + 7
+        role8CurrentPathMissing     = Qt.UserRole + 8
         role11DisplayText           = Qt.UserRole + 11
 
 
@@ -2433,10 +2439,13 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             # tree nobody expected. Before it, one bad node raised and killed this whole loop,
             # and since self.sceneUpdateUi.show() sits after the loop the dialog never appeared
             # at all - which is what the artists reported as < Scene Update is not working >.
+            theCannotJudgeReason = ''
+
             try:
                 latestVersionPath = isLatestVersion(keyNodeName, dictFoundVersionNodes.get(keyNodeName)[0], dictFoundVersionNodes.get(keyNodeName)[1],dictFoundVersionNodes.get(keyNodeName)[2], dictFoundVersionNodes.get(keyNodeName)[3])
             except Exception as theError:
-                println('< {} > cannot be judged : {} : {}'.format(keyNodeName, type(theError).__name__, theError))
+                theCannotJudgeReason = '{} : {}'.format(type(theError).__name__, theError)
+                println('< {} > cannot be judged : {}'.format(keyNodeName, theCannotJudgeReason))
                 latestVersionPath = None, None
 
 
@@ -2488,9 +2497,32 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                 item.setData(Qt.CheckStateRole, None)
                 item.setFlags(Qt.NoItemFlags)
 
+                # The row already says < path not found > in the compare line, so it carries no
+                # extra marker. There is no version to offer, which is what the wording says.
+                showCurrentPathMissing = ''
+
+                if theCannotJudgeReason == '':
+                    warningLines.append('< {} >   No version folder can be compared. There is nothing to update to.'.format(keyNodeName))
+                else:
+                    warningLines.append('< {} >   {}'.format(keyNodeName, theCannotJudgeReason))
+
+                warningLines.append('     {}\n'.format(showCurrentLongWithTail))
+
             else:
                 showNewLongWithTail = str(dictFoundVersionNodes.get(keyNodeName)[8]).replace(os.sep, '/')
                 showLatestBasename  = dictFoundVersionNodes.get(keyNodeName)[9]
+
+                # [4] is the folder that holds the frames, the same one the up-to-date test
+                # compares. A version folder that was deleted while a newer one sits beside it
+                # reads as a plain OutDated row, with nothing saying the footage in the script
+                # is already gone. The colour still describes the version, this marker describes
+                # existence, and the row stays checkable because updating is exactly the fix.
+                if os.path.isdir(dictFoundVersionNodes.get(keyNodeName)[4]):
+                    showCurrentPathMissing = ''
+                else:
+                    showCurrentPathMissing = '[Current Path Missing !!! ? User can still update to latest ver]'
+                    warningLines.append('< {} >   Current path is missing. It can still be updated to < {} >.'.format(keyNodeName, showLatestBasename))
+                    warningLines.append('     {}\n'.format(showCurrentLongWithTail))
 
                 if showCurrentLongWithTail == showNewLongWithTail:
                     #upToDateFont = QFont()
@@ -2517,10 +2549,11 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             item.setData(role5LatestLongWithTail    , showNewLongWithTail)
             item.setData(role6NodeClass             , dictFoundVersionNodes.get(keyNodeName)[6])
             item.setData(role7NodeIsNotFreeze       , dictFoundVersionNodes.get(keyNodeName)[7])
+            item.setData(role8CurrentPathMissing    , showCurrentPathMissing)
 
 
             showText = (f'\n'
-                        f'< {item.data(role1Nodename)} >               [{item.data(role6NodeClass)}]          -{item.data(role7NodeIsNotFreeze)}-\n'
+                        f'< {item.data(role1Nodename)} >               [{item.data(role6NodeClass)}]          -{item.data(role7NodeIsNotFreeze)}-          {item.data(role8CurrentPathMissing)}\n'
                         f'{item.data(role2CurrentBasename)}     :::     {item.data(role4LatestBasename)}\n'
                         f'\n'
                         f'Latest path : {item.data(role5LatestLongWithTail)}'
@@ -2544,6 +2577,11 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         self.sceneUpdateUi.show()
         apply_filter()
+
+        # After show() and apply_filter(), so the list is already behind the box and the artist
+        # can match the node names against the rows.
+        if len(warningLines) > 0:
+            QMessageBox.warning(self, 'Ooops!', 'Scene Update cannot follow these nodes :\n\n{}\nTheir < file > knob points at a path that is not on disk.'.format('\n'.join(warningLines)))
 
 
 
