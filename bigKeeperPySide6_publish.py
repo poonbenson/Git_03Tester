@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20260903a'
+winTitlePrefix = 'BigKeeper_20260906a'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -1518,35 +1518,41 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                     self.printEcho('current changes have not yet been saved!')
                     nuke.scriptClose() ### pop a dialog instead of close.
                     if nuke.Root().modified() == False:
-                        nuke.scriptOpen(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1]))
-                        nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
-                        self.activateCurrentTab()
+                        if self.nukeScriptOpenTolerant(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1])):
+
+                            try:
+                                nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
+                            except:
+                                self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
+                                pass
+
+                            self.activateCurrentTab()
 
                 else:
 
                     nuke.scriptClose()
-                    nuke.scriptOpen(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1]))
-                    #nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
+                    if self.nukeScriptOpenTolerant(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1])):
+                        #nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
 
-                    try:
-                        nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
-                    except:
-                        self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
-                        pass
+                        try:
+                            nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
+                        except:
+                            self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
+                            pass
 
-                    # To avoid error message when launchSceneUpdate on a v0000
-                    #if noNeedSceneUpdateToken:
-                    try:
-                        #disabled this upon Apple and Sally request for a heavy shot.
-                        #nuke.onScriptLoad(self.launchSceneUpdate())
-                        nuke.onScriptLoad(self.openSceneUpdate())
-                        #QMessageBox.information(self, 'Auto Scene Update', 'Check if Scene Update is needed ?')
-                    except:
-                        self.printEcho('PASS "nuke.onScriptLoad(self.launchSceneUpdate())"')
-                        pass
+                        # To avoid error message when launchSceneUpdate on a v0000
+                        #if noNeedSceneUpdateToken:
+                        try:
+                            #disabled this upon Apple and Sally request for a heavy shot.
+                            #nuke.onScriptLoad(self.launchSceneUpdate())
+                            nuke.onScriptLoad(self.openSceneUpdate())
+                            #QMessageBox.information(self, 'Auto Scene Update', 'Check if Scene Update is needed ?')
+                        except:
+                            self.printEcho('PASS "nuke.onScriptLoad(self.launchSceneUpdate())"')
+                            pass
 
-                    self.activateCurrentTab()
-                    #window.close()
+                        self.activateCurrentTab()
+                        #window.close()
 
             elif in_houdini:
                     hou.hipFile.load(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1]))
@@ -2510,8 +2516,28 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                 self.printEcho('current changes have not yet been saved!')
                 nuke.scriptClose() ### pop a dialog instead of close.
                 if nuke.Root().modified() == False:
-                    self.printEcho(os.path.join(bigKInfo.currentPath(), item.text()))
-                    nuke.scriptOpen(os.path.join(bigKInfo.currentPath(), item.text()))
+                    if self.nukeScriptOpenTolerant(os.path.join(bigKInfo.currentPath(), item.text())):
+
+                        try:
+                            nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
+                        except:
+                            self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
+                            pass
+
+                        try:
+                            #disabled this upon Apple and Sally request for a heavy shot.
+                            #nuke.onScriptLoad(self.launchSceneUpdate())
+                            nuke.onScriptLoad(self.openSceneUpdate())
+                            #QMessageBox.information(self, 'Auto Scene Update', 'Check if Scene Update is needed ?')
+                        except:
+                            self.printEcho('PASS "nuke.onScriptLoad(self.launchSceneUpdate())"')
+                            pass
+
+                        self.activateCurrentTab()
+
+            else:
+                nuke.scriptClose()
+                if self.nukeScriptOpenTolerant(os.path.join(bigKInfo.currentPath(), item.text())):
 
                     try:
                         nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
@@ -2529,28 +2555,6 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                         pass
 
                     self.activateCurrentTab()
-
-            else:
-                nuke.scriptClose()
-                self.printEcho(os.path.join(bigKInfo.currentPath(), item.text()))
-                nuke.scriptOpen(os.path.join(bigKInfo.currentPath(), item.text()))
-
-                try:
-                    nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
-                except:
-                    self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
-                    pass
-
-                try:
-                    #disabled this upon Apple and Sally request for a heavy shot.
-                    #nuke.onScriptLoad(self.launchSceneUpdate())
-                    nuke.onScriptLoad(self.openSceneUpdate())
-                    #QMessageBox.information(self, 'Auto Scene Update', 'Check if Scene Update is needed ?')
-                except:
-                    self.printEcho('PASS "nuke.onScriptLoad(self.launchSceneUpdate())"')
-                    pass
-
-                self.activateCurrentTab()
 
 
         elif in_houdini:
@@ -2598,18 +2602,28 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                 self.printEcho('current changes have not yet been saved!')
                 nuke.scriptClose() ### pop a dialog instead of close.
                 if nuke.Root().modified() == False:
-                    self.printEcho(os.path.join(self.selProjScnShotTaskWIPPath, item.text()))
-                    nuke.scriptOpen(os.path.join(self.selProjScnShotTaskWIPPath, item.text()))
-                    nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
-                    self.activateCurrentTab()
+                    if self.nukeScriptOpenTolerant(os.path.join(self.selProjScnShotTaskWIPPath, item.text())):
+
+                        try:
+                            nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
+                        except:
+                            self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
+                            pass
+
+                        self.activateCurrentTab()
 
 
             else:
                 nuke.scriptClose()
-                self.printEcho((os.path.join(self.selProjScnShotTaskWIPPath, item.text())))
-                nuke.scriptOpen(os.path.join(self.selProjScnShotTaskWIPPath, item.text()))
-                nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
-                self.activateCurrentTab()
+                if self.nukeScriptOpenTolerant(os.path.join(self.selProjScnShotTaskWIPPath, item.text())):
+
+                    try:
+                        nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
+                    except:
+                        self.printEcho('PASS "nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())"')
+                        pass
+
+                    self.activateCurrentTab()
 
         elif in_houdini:
             hou.hipFile.load(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1]))
@@ -3675,6 +3689,41 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         QMessageBox.information(self, 'New Wip with Used Current', 'New WIP in new task < {} > created.'.format(self.selTask))
 
 
+    def nukeScriptOpenTolerant(self, inFullPath):
+        println('\ndef >>>>> nukeScriptOpenTolerant')
+
+        # nuke.scriptOpen raises RuntimeError for two very different things, and the bare call
+        # this def replaces let both of them kill the rest of the open handler : the freeze
+        # callback, the Scene Update check and the tab switch all stopped running.
+        #   - The script IS loaded, but something in it complained. A knob value the current
+        #     colour config no longer offers ( a Nuke 15 script carrying < display ACES > opened
+        #     in Nuke 17 ), a missing gizmo, an unknown node. Nuke leaves that knob at its
+        #     default value and the script is open, so the caller carries on.
+        #   - The script is NOT loaded at all. nuke.root() is then still the previous script and
+        #     the caller must stop, or it would run its follow up steps on the wrong script.
+        # Comparing the root name against the path asked for is what tells the two apart.
+        try:
+            nuke.scriptOpen(inFullPath)
+            errorText = ''
+        except RuntimeError as theError:
+            errorText = str(theError)
+
+        openedPath = nuke.root().name()
+        self.printEcho('asked for : {}'.format(inFullPath))
+        self.printEcho('opened    : {}'.format(openedPath))
+
+        # nuke.root().name() is forward slashed, os.path.join builds backslashes on Windows.
+        isOpened = os.path.normpath(openedPath).lower() == os.path.normpath(inFullPath).lower()
+
+        if errorText != '' and isOpened == True:
+            QMessageBox.warning(self, 'Ooops!', '{}\n\nis open, but Nuke reported :\n\n{}\n\nThe knobs named above are left at their default value.\nSaving a new version writes the corrected value back.'.format(inFullPath, errorText))
+
+        elif errorText != '':
+            QMessageBox.warning(self, 'Ooops!', '{}\n\nis NOT opened. Nuke reported :\n\n{}'.format(inFullPath, errorText))
+
+        return isOpened
+
+
     def pretendCloseNukeScript(self):
         println('\ndef >>>>> pretendCloseNukeScript')
 
@@ -3692,6 +3741,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
         '''
 
+    '''
     def checkCurrentUnsaveStatus(self):
         println('\ndef >>>>> checkCurrentUnsaveStatus')
         if in_nuke:
@@ -3708,6 +3758,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                 nuke.scriptOpen(os.path.join(self.selProjScnShotTaskWIPPath, self.listFile[-1]))
                 nuke.onScriptLoad(self.nukeFileKnobFreezeScriptLoad())
                 #window.close()
+    '''
 
     def updateCurrentOpeningLocationPath(self):
         println('\ndef >>>>> updateCurrentOpeningLocationPath')
