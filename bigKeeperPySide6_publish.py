@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20260906e'
+winTitlePrefix = 'BigKeeper_20260906f'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -379,8 +379,8 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         self.listWidget_3.itemClicked.connect(lambda : self.listWidget_shotTask_action(self.listWidget_3.currentItem(), 'typeScene'))
         self.listWidget_AssetTask.itemClicked.connect(lambda : self.listWidget_shotTask_action(self.listWidget_AssetTask.currentItem(), 'typeLib'))
         #self.listWidget_3.itemDoubleClicked.connect(self.listWidget_3B_action)
-        self.listWidget_3.itemDoubleClicked.connect(self.listWidget_3C_action)
-        self.listWidget_AssetTask.itemDoubleClicked.connect(self.listWidget_3C_action)
+        self.listWidget_3.itemDoubleClicked.connect(lambda : self.listWidget_3C_action(self.listWidget_3.currentItem(), 'typeScene'))
+        self.listWidget_AssetTask.itemDoubleClicked.connect(lambda : self.listWidget_3C_action(self.listWidget_AssetTask.currentItem(), 'typeLib'))
         self.listWidget_3.setSortingEnabled(True)
         self.listWidget_AssetTask.setSortingEnabled(True)
 
@@ -1175,6 +1175,22 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         return listLevel
 
 
+    def taskLevelConvert(self, inType):
+        println('\ndef >>>>> taskLevelConvert')
+
+        # The task level of whichever tab is asking : the shot's or asset's components folder,
+        # the shot or asset name, and the task name. Same shape as listTypeConvert, a plain
+        # tuple unpacked at the call site. It exists because selProjScnShotTaskPath, selShot
+        # and selTask used to be one set shared by both tabs, so pressing a Shot tab button
+        # after clicking around the Asset tab acted on the asset's folder.
+        if inType == 'typeScene':
+            taskLevel = (self.selProjScnShotTaskPath, self.selShot, self.selTask)
+        elif inType == 'typeLib':
+            taskLevel = (self.selProjAssetTypeAssetTaskPath, self.selProjAssetTypeAssetName, self.selProjAssetTypeAssetTaskName)
+
+        return taskLevel
+
+
     def listWidget_1_appear(self, inType):
         println('\ndef >>>>> listWidget_1_appear')
         self.printEcho(inType)
@@ -1428,7 +1444,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             self.pushButton_shotAction3.setEnabled(False)
         elif inType == 'typeLib':
             self.printEcho(item3.text())
-            self.selShot = item3.text()
+            self.selProjAssetTypeAssetName = item3.text()
             self.selProjAssetTypeAssetTaskPath = os.path.join(self.selProjAssetTypeAssetPath, item3.text(), "components")
             folderList = os.listdir(self.selProjAssetTypeAssetTaskPath)
             listTask = []
@@ -1439,8 +1455,6 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             listTask.sort()
             self.listWidget_AssetTask.clear()
             self.listWidget_AssetTask.addItems(listTask)
-            # to commonly use the same Variable, rest of the Action Def will be commonly shared.
-            self.selProjScnShotTaskPath = self.selProjAssetTypeAssetTaskPath
 
             self.assetLocationPath = os.path.join(self.selProjAssetTypeAssetPath, item3.text())
             self.lineEdit_assetLocation.setText(self.assetLocationPath)
@@ -1451,16 +1465,32 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             self.pushButton_assetAction3.setEnabled(False)
 
 
-    def listWidget_3C_action(self, item):
+    def listWidget_3C_action(self, item, inType):
         println('\ndef >>>>> listWidget_3C_action')
         try:
             theItem = item.text()
         except:
             theItem = item
-        self.selProjScnShotTaskWIPPath = os.path.join(self.selProjScnShotTaskPath, theItem, self.subDict[self.selProjWipCode])
+
+        # Each tab keeps its own browse state now, so the components folder is read back through
+        # inType. It used to read the shared selProjScnShotTaskPath, which pointed at whichever
+        # tab was drilled into last.
+        taskParentPath, shotName, taskName = self.taskLevelConvert(inType)
+
+        self.selProjScnShotTaskWIPPath = os.path.join(taskParentPath, theItem, self.subDict[self.selProjWipCode])
         self.printEcho(self.selProjScnShotTaskWIPPath)
         self.printEcho(theItem)
-        self.selTask = theItem
+
+        if inType == 'typeScene':
+            self.selTask = theItem
+        elif inType == 'typeLib':
+            self.selProjAssetTypeAssetTaskName = theItem
+
+        # The New WIP dialog below is one shared instance whose two buttons are connected once
+        # at startup in initializeNewWIPDialogWindow, so createNewWIP2 and useCurrentWIP cannot
+        # be given the tag by lambda. This is the only def that opens the dialog, so it is
+        # stashed here, the same way newTaskKeywordShow stashes newTaskKeywordInType.
+        self.newWipInType = inType
 
         #checkResult = self.createNewWIP(item)
         #println('checkResult is :')
@@ -2763,7 +2793,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             self.assetLocationPath = os.path.join(self.selProjAssetTypeAssetTaskPath, item.text())
             self.printEcho(self.assetLocationPath)
             self.lineEdit_assetLocation.setText(self.assetLocationPath)
-            self.selTask = item.text()
+            self.selProjAssetTypeAssetTaskName = item.text()
             #self.pushButton_CompLatestRv.setEnabled(True)
             self.pushButton_assetAction.setEnabled(True)
             self.pushButton_assetAction2.setEnabled(False)
@@ -3398,10 +3428,10 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             QMessageBox.warning(self, 'Ooops!', 'New Task\n\nPlease select a Task Type.')
             return
 
-        if inType == 'typeScene':
-            newParentPath = os.path.join(self.selProjScnShotPath, self.selShot, 'components')
-        elif inType == 'typeLib':
-            newParentPath = os.path.join(self.selProjAssetTypeAssetPath, self.selShot, 'components')
+        # The components folder is what listWidget_3_appear already built for this tab, so it
+        # is read back instead of being joined again out of the shared selShot.
+        taskParentPath, shotName, taskName = self.taskLevelConvert(inType)
+        newParentPath = taskParentPath
 
         problemReport = self.namesListCheck([item], newParentPath)
 
@@ -3655,14 +3685,18 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
     def createNewWIP2(self):
         print ('\ndef >>>>> createNewWIP2')
 
-        self.selProjScnShotTaskWIPPath = os.path.join(self.selProjScnShotTaskPath, self.selTask, self.subDict[self.selProjWipCode])
+        # Same as useCurrentWIP : newWipInType is stashed by listWidget_3C_action because this
+        # dialog's buttons are connected once at startup and cannot carry the tag by lambda.
+        taskParentPath, shotName, taskName = self.taskLevelConvert(self.newWipInType)
+
+        self.selProjScnShotTaskWIPPath = os.path.join(taskParentPath, taskName, self.subDict[self.selProjWipCode])
         self.printEcho(self.selProjScnShotTaskWIPPath)
 
         # A task folder made by hand has no wip folder. The user has just answered New WIP,
         # so build it here instead of letting open() fail. Covers both open() calls below.
         os.makedirs(self.selProjScnShotTaskWIPPath, exist_ok = True)
 
-        newWipName = (self.selShot + "_" + self.selTask + "_" + self.subDict[self.selProjWipCode] + "_v0000" + wipExtension)
+        newWipName = (shotName + "_" + taskName + "_" + self.subDict[self.selProjWipCode] + "_v0000" + wipExtension)
         self.printEcho(newWipName)
 
         println()
@@ -3761,12 +3795,17 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             self.updateCurrentOpeningLocationPath()
         """
 
+        # The New WIP dialog is one shared instance and its two buttons are connected once at
+        # startup in initializeNewWIPDialogWindow, so the tag cannot arrive by lambda. It is
+        # stashed by listWidget_3C_action, the only def that opens the dialog.
+        taskParentPath, shotName, taskName = self.taskLevelConvert(self.newWipInType)
+
         self.printEcho('bigKeeperCacheFolderPath :{}'.format(bigKeeperCacheFolderPath))
-        self.selProjScnShotTaskWIPPath = os.path.join(self.selProjScnShotTaskPath, self.selTask, self.subDict[self.selProjWipCode])
+        self.selProjScnShotTaskWIPPath = os.path.join(taskParentPath, taskName, self.subDict[self.selProjWipCode])
         self.printEcho(self.selProjScnShotTaskWIPPath)
 
 
-        newWipName = (self.selShot + "_" + self.selTask + "_" + self.subDict[self.selProjWipCode] + "_v0000" + wipExtension)
+        newWipName = (shotName + "_" + taskName + "_" + self.subDict[self.selProjWipCode] + "_v0000" + wipExtension)
         self.printEcho(newWipName)
         saveName = os.path.join(self.selProjScnShotTaskWIPPath,newWipName)
         self.printEcho(saveName)
@@ -3778,7 +3817,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         self.updateCurrentOpeningLocationPath()
 
-        QMessageBox.information(self, 'New Wip with Used Current', 'New WIP in new task < {} > created.'.format(self.selTask))
+        QMessageBox.information(self, 'New Wip with Used Current', 'New WIP in new task < {} > created.'.format(taskName))
 
 
     def nukeScriptOpenTolerant(self, inFullPath):
@@ -4004,19 +4043,20 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
     def shotAction1Action(self, inType):
         println('\ndef >>>>> shotAction1Action')
 
-        if inType == 'typeScene':
-            if self.listWidget_3.currentRow() > -1:
-                self.printEcho(self.selTask)
-                self.listWidget_3C_action(self.selTask)
-            else:
-                QMessageBox.information(self, 'message', "no task is selected.")
+        # Both arms used to differ only by the listWidget, and both handed the shared selTask
+        # down to listWidget_3C_action. The task name now comes from this tab's own state.
+        taskParentPath, shotName, taskName = self.taskLevelConvert(inType)
 
+        if inType == 'typeScene':
+            listWidgetTask = self.listWidget_3
         elif inType == 'typeLib':
-            if self.listWidget_AssetTask.currentRow() > -1:
-                self.printEcho(self.selTask)
-                self.listWidget_3C_action(self.selTask)
-            else:
-                QMessageBox.information(self, 'message', "no task is selected.")
+            listWidgetTask = self.listWidget_AssetTask
+
+        if listWidgetTask.currentRow() > -1:
+            self.printEcho(taskName)
+            self.listWidget_3C_action(taskName, inType)
+        else:
+            QMessageBox.information(self, 'message', "no task is selected.")
 
     def shotAction2Action(self):
         println('\ndef >>>>> shotAction2Action')
