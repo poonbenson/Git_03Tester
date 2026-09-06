@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20260906c'
+winTitlePrefix = 'BigKeeper_20260906e'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -541,7 +541,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
 
         self.pushButton_scnUpdate.clicked.connect(self.openSceneUpdate)
-        self.pushButton_scnUpdate.setText('Scene Update NEW')
+        self.pushButton_scnUpdate.setText('Scene Update')
         self.pushButton_scnUpdate_2.clicked.connect(self.launchSceneUpdate)
         self.pushButton_scnUpdate_2.setText('Scene Update OLD')
 
@@ -657,6 +657,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         #self.tabWidget.setTabVisible(2, self.horizontalSlider_echoSwitch.value())
         self.tabWidget.setTabVisible(3, self.horizontalSlider_echoSwitch.value())
         self.pushButton_genWriteFreeLayerMask.setEnabled(self.horizontalSlider_echoSwitch.value() > 0)
+        self.pushButton_scnUpdate_2.setVisible(self.horizontalSlider_echoSwitch.value() > 0)
 
 
         self.pushButton_shotAction.setText('shotActionMenu')
@@ -805,6 +806,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         #self.tabWidget.setTabVisible(2, self.horizontalSlider_echoSwitch.value())
         self.tabWidget.setTabVisible(3, self.horizontalSlider_echoSwitch.value())
         self.pushButton_genWriteFreeLayerMask.setEnabled(self.horizontalSlider_echoSwitch.value() > 0)
+        self.pushButton_scnUpdate_2.setVisible(self.horizontalSlider_echoSwitch.value() > 0)
 
 
     '''def listWidget_1_receivedList(self, item):
