@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20260906g'
+winTitlePrefix = 'BigKeeper_20260906h'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -2901,12 +2901,12 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         if not os.path.isfile(storageFullPath):
 
-            # A board made before the storage tree existed moves there on the first press, with no
-            # question asked : it is the same board, only somewhere else.
-            boardToMovePath = ''
+            # A board made before the storage tree existed is copied there on the first press,
+            # with no question asked : it is the same board, only somewhere else.
+            boardToCopyPath = ''
 
             if os.path.isfile(originalFullPath):
-                boardToMovePath = originalFullPath
+                boardToCopyPath = originalFullPath
             else:
                 answer = QMessageBox.question(self, 'Visual Board',
                                               'There is no Visual Board here yet :\n\n{}\n\nCreate < {} > ?'.format(
@@ -2921,12 +2921,24 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             if not os.path.isdir(storageFolderPath):
                 os.makedirs(storageFolderPath)
 
-            if boardToMovePath != '':
-                shutil.move(boardToMovePath, storageFullPath)
-                println('Visual Board moved : {}    >>>    {}'.format(boardToMovePath, storageFullPath))
+            if boardToCopyPath != '':
+                shutil.copy2(boardToCopyPath, storageFullPath)
+                println('Visual Board copied : {}    >>>    {}'.format(boardToCopyPath, storageFullPath))
             else:
                 open(storageFullPath, 'w').close()
                 println('Visual Board created : {}'.format(storageFullPath))
+
+        # The copy is in place by now, so the board on the job drive goes. One that is open in
+        # PureRef, or held by the storage drive's sync, refuses to be deleted, so it is left where
+        # it is and tried again on the next press instead of failing the whole button.
+        if os.path.isfile(originalFullPath):
+            try:
+                os.remove(originalFullPath)
+                println('Old Visual Board deleted : {}'.format(originalFullPath))
+            except OSError as deleteProblem:
+                QMessageBox.warning(self, 'Ooops!',
+                                    'The old Visual Board could not be deleted :\n\n{}\n\n{}\n\nThe board opens from its new home anyway, and BigKeeper tries this again the next time you open it.'.format(
+                                        originalFullPath, deleteProblem))
 
         # Rebuilt whenever it is missing, so a board moved by hand still gets one back. Same
         # Shortcut.exe the RV comment folder uses :
