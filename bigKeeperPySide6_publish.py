@@ -195,6 +195,28 @@ bigKWriteTypeKnobName = 'bigKWriteType'
 # User knob stamped on every bigK Write node at birth, holding its inType.
 # Nodes made before this knob existed return None, which is exactly "not special".
 
+# the four version digits by looking backwards from this word instead of rebuilding the path.
+
+bigKWriteTypeKnobName = 'bigKWriteType'
+# User knob stamped on every bigK Write node at birth, holding its inType.
+# Nodes made before this knob existed return None, which is exactly "not special".
+
+lightQCType = 'LightQC'
+lightQCBackdropName = 'bigK_' + lightQCType
+lightQCPublishFolderName = 'published' + lightQCType
+# The LightQC step, renamed from LightPublish. One word drives the backdrop inType, the
+# backdrop node name (bigK_LightQC), and the folder it copies into (publishedLightQC).
+# Nothing reads the old bigK_lightPublish backdrop or the old publishedLightPreRend folder --
+# lightQCCopyAction tells the artist to re-build the backdrop instead.
+
+compWriteNodePresetFileName = 'compWriteNodePreset.txt'
+# The per project Write node preset, in the project work folder next to compPrerendPreset.txt
+8# and the two taskType preset files. One preset per line.
+
+compWriteNodeSingleFileTypes = ['mov', 'mp4', 'mxf']
+
+
+
 compWriteNodePresetFileName = 'compWriteNodePreset.txt'
 # The per project Write node preset, in the project work folder next to compPrerendPreset.txt
 # and the two taskType preset files. One preset per line.
@@ -621,8 +643,8 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         self.pushButton_genWriteCompMasterV.setText('CompMaster-V')
         self.pushButton_genWriteFreeLayerMask.clicked.connect(lambda : self.nukeBornWriteNode(freeLayerMaskType))
 
-        self.pushButton_genLightPublishBackdrop.clicked.connect(self.lightPublishBornBackdrop)
-        self.pushButton_lightPublishAction.clicked.connect(self.lightPublishCopyAction)
+        self.pushButton_genLightPublishBackdrop.clicked.connect(self.lightQCBornBackdrop)
+        self.pushButton_lightPublishAction.clicked.connect(self.lightQCCopyAction)
 
 
         self.pushButton_genCgRenderBackdrop.clicked.connect(self.genCgRenderBackdrop)
@@ -5196,7 +5218,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             baseColor = 2060476415
         elif inTypeForColor == 'Prerend':
             baseColor = 2060476415
-        elif inTypeForColor == 'LightPublish':
+        elif inTypeForColor == lightQCType:
             baseColor = 2320101951
             marginHeight = 38
             marginWidth = 90
@@ -5301,8 +5323,8 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
 
 
-    def lightPublishBornBackdrop(self):
-        println('\ndef >>>>> lightPublishBornBackdrop')
+    def lightQCBornBackdrop(self):
+        println('\ndef >>>>> lightQCBornBackdrop')
 
         isAlreadyExist = False
 
@@ -5310,7 +5332,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         for checkNode in allNodes:
             self.printEcho(checkNode['name'].value())
 
-            if checkNode['name'].value() == 'bigK_lightPublish':
+            if checkNode['name'].value() == lightQCBackdropName:
                 isAlreadyExist = True
 
         if not isAlreadyExist:
@@ -5323,20 +5345,20 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
             self.printEcho(allSelNodesName)
 
-            backdropLabel= 'bigK_LightPublish'
-            inType = 'LightPublish'
-            Prefix = 'bigK_lightPublish'
+            backdropLabel = lightQCBackdropName
+            inType = lightQCType
+            Prefix = lightQCBackdropName
 
             self.nukeBornBackdrop(allSelNodesName, backdropLabel, inType, Prefix)
 
         else:
 
-            dupMessage = '\n\nBackdrop Node Name <{}> is already existed\n\n'.format('bigK_lightPublish')
+            dupMessage = '\n\nBackdrop Node Name <{}> is already existed\n\n'.format(lightQCBackdropName)
             QMessageBox.information(self, 'message', dupMessage)
 
 
-    def lightPublishCopyAction(self):
-        println('\ndef >>>>> lightPublishCopyAction')
+    def lightQCCopyAction(self):
+        println('\ndef >>>>> lightQCCopyAction')
 
         def findSeqBaseName(inReadNodeFilePath):
             #println('\ndef >>>>> findSeqBaseName')
@@ -5352,7 +5374,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             #println('def findSeqBaseName <<<<<')
             return seqBaseName
 
-        targetBackdrop = nuke.toNode('bigK_lightPublish')
+        targetBackdrop = nuke.toNode(lightQCBackdropName)
+
+        # Scripts made before the LightQC rename carry a bigK_lightPublish backdrop, which this
+        # no longer finds. The old backdrop is not converted -- the artist rebuilds it.
+        if targetBackdrop is None:
+            QMessageBox.warning(self, 'Ooops!', '\n\nBackdrop <{}> is not found.\n\nIf this script still carries an old <bigK_lightPublish> backdrop, delete it and re-build with the current LightQC Backdrop button.\n\n'.format(lightQCBackdropName))
+            return
+
         nodesInBackdrop = targetBackdrop.getNodes()
 
 
@@ -5407,14 +5436,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             originalVerNumber = os.path.normpath(sourcePath).split(os.path.sep)[12]
             self.printEcho(originalVerNumber)
 
-            #println(os.path.join(currentTaskPath, 'publishedLightPreRend', (str(currentVerNumber).zfill(4)), os.path.basename(sourceReadNodeFilePath.parent)))
-            destinationVerPath = os.path.join(currentTaskPath, 'publishedLightPreRend', (str(originalVerNumber).zfill(4)), os.path.basename(sourceReadNodeFilePath.parent))
+            #println(os.path.join(currentTaskPath, lightQCPublishFolderName, (str(currentVerNumber).zfill(4)), os.path.basename(sourceReadNodeFilePath.parent)))
+            destinationVerPath = os.path.join(currentTaskPath, lightQCPublishFolderName, (str(originalVerNumber).zfill(4)), os.path.basename(sourceReadNodeFilePath.parent))
 
 
             listFiles = os.listdir(sourceReadNodeFilePath.parent)
 
 
-            #for copy to under according to Lightpublish.nk ver Number
+            #for copy to under according to LightQC .nk ver Number
             targetFiles = []
 
             for file in listFiles:
