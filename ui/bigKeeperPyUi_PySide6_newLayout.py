@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'bigKeeperPyUi_PySide6_newLayout_v159.ui'
+## Form generated from reading UI file 'bigKeeperPyUi_PySide6_newLayout_v160.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.9.0
 ##
@@ -1352,7 +1352,7 @@ class Ui_MainWindow(object):
         self.retranslateUi(MainWindow)
 
         self.tabWidget.setCurrentIndex(0)
-        self.tabWidget_2.setCurrentIndex(5)
+        self.tabWidget_2.setCurrentIndex(1)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -1409,7 +1409,7 @@ class Ui_MainWindow(object):
         self.pushButton_NukeReadNodeTempTool.setText(QCoreApplication.translate("MainWindow", u"Get Frame Range\n"
 "- Selected Read Nodes -", None))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tabMaya), QCoreApplication.translate("MainWindow", u"Maya", None))
-        self.label_24.setText(QCoreApplication.translate("MainWindow", u"Light Publish", None))
+        self.label_24.setText(QCoreApplication.translate("MainWindow", u"LightQC Publish", None))
 #if QT_CONFIG(tooltip)
         self.pushButton_genLightPublishBackdrop.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_genLightPublishBackdrop", None))
 #endif // QT_CONFIG(tooltip)
@@ -1419,7 +1419,7 @@ class Ui_MainWindow(object):
         self.pushButton_lightPublishAction.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_LightPublishAction", None))
 #endif // QT_CONFIG(tooltip)
         self.pushButton_lightPublishAction.setText(QCoreApplication.translate("MainWindow", u"VersionUp + \n"
-"LightPublish", None))
+"Publish", None))
         self.label_25.setText(QCoreApplication.translate("MainWindow", u"Prerend Write Node", None))
 #if QT_CONFIG(tooltip)
         self.pushButton_genWritePrerend.setToolTip(QCoreApplication.translate("MainWindow", u"pushButton_genWritePrerend", None))
