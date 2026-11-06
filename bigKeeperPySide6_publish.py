@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261022a'
+winTitlePrefix = 'BigKeeper_20261106a'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -3458,6 +3458,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         # under the task that RV reviews, one <taskType>|<folder> per line, e.g. comp|output.
         # An empty string means this Task Type has no RV review, and an older project without
         # the file reads the same way. Both leave the RV rows disabled.
+        # A line starting with # is a remark for the user and is skipped.
         rvReviewFolderPresetFullName = os.path.join(self.subDict[self.selProjPath], 'rvReviewFolderPreset.txt')
         self.printEcho(rvReviewFolderPresetFullName)
 
@@ -3468,6 +3469,8 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             contents = file.readlines()
 
         for eachLine in contents:
+            if eachLine.lstrip().startswith('#'):
+                continue
             eachPair = eachLine.replace('\n', "").split('|')
             if eachPair[0] == inTaskType:
                 return eachPair[1]
