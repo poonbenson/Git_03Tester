@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261106a'
+winTitlePrefix = 'BigKeeper_20261114a'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -9,7 +9,7 @@ from inspect import currentframe
 def println(inContent = '-'):
     print('{} : {}'.format(currentframe().f_back.f_lineno, inContent))
 
-import subprocess, os, sys, time, pathlib, shutil
+import subprocess, os, sys, time, pathlib, shutil, re
 println('PYTHON version : {}'.format(sys.version))
 
 # path of bigKeeperTest_publish : N:\BigKeeper
@@ -185,6 +185,22 @@ rvSessionStorageRootPath = r'K:\z_RvSession'
 # K:\z_RvSession\ChanFilm\scenes\Sc01TramSeq\CG0010\components\comp\output\v0005.rv. The folder
 # RV reviews on the job drive keeps a Windows shortcut, v0005.rv.lnk, pointing back here. Same as
 # the Visual Board, nothing checks that K: is mapped.
+
+bigSyncConfigPath = r'N:\bpPipeline\bigSync\config\bigsync_config.txt'
+# BigSync's own settings. Its sites line lists every office, so an office added to BigSync shows
+# up in the Send to BigSync window with no change here.
+
+bigSyncLocationPath = r'N:\mnt\job\location.ini'
+# Which office this PC is at, the same file BigSync reads. That office is left out of the target
+# sites, since a job cannot be sent to itself.
+
+bigSyncDefaultTargetList = [['CA', 'UK'], ['UK', 'HongKong'], ['HongKong', 'UK']]
+# [this office, the target site ticked first] in the Send to BigSync window. An office that is
+# not listed starts on the first target site.
+
+bigSyncTaskPresetName = 'bigSyncTaskPreset.txt'
+# The per project preset, in the project work folder, that says which folders and files of a
+# task Send to BigSync collects. Read by bigSyncTaskPresetRead.
 
 visualBoardStorageRootPath = r'K:\z_VisualBoard'
 # Every Visual Board lives here, mirroring the project tree under its own project folder :
@@ -717,12 +733,15 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         #self.shotAction2 = QAction('RV latest Comp Output', self)
         self.shotAction3 = QAction('RV Build && Review Latest ver', self)
         self.shotAction4 = QAction('RV Review Previous ver', self)
+        self.shotAction5 = QAction('Send to BigSync', self)
         self.shotActionMenu.addAction(self.shotTaskTypeAction)
         self.shotActionMenu.addSeparator()
         self.shotActionMenu.addAction(self.shotAction1)
         #self.shotActionMenu.addAction(self.shotAction2)
         self.shotActionMenu.addAction(self.shotAction3)
         self.shotActionMenu.addAction(self.shotAction4)
+        self.shotActionMenu.addSeparator()
+        self.shotActionMenu.addAction(self.shotAction5)
         self.pushButton_shotAction.setMenu(self.shotActionMenu)
         # 'Task Type' above is only a placeholder, aboutToShow writes the row before it is seen.
         self.shotActionMenu.aboutToShow.connect(lambda : self.taskTypeMenuRefresh('typeScene'))
@@ -731,6 +750,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         #self.shotAction2.triggered.connect(self.shotAction2Action)
         self.shotAction3.triggered.connect(lambda : self.rvReviewAction('typeScene', None))
         self.shotAction4.triggered.connect(lambda : self.rvPreviousVersionShow('typeScene'))
+        self.shotAction5.triggered.connect(lambda : self.bigSyncSendAction('typeScene'))
         # Hidden, not removed : Previous ver covers it, and rvReviewAction still serves Previous ver.
         self.shotAction3.setVisible(False)
 
@@ -741,17 +761,21 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         self.assetAction1 = QAction('Edit Asset Task', self)
         self.assetAction3 = QAction('RV Build && Review Latest ver', self)
         self.assetAction4 = QAction('RV Review Previous ver', self)
+        self.assetAction5 = QAction('Send to BigSync', self)
         self.assetActionMenu.addAction(self.assetTaskTypeAction)
         self.assetActionMenu.addSeparator()
         self.assetActionMenu.addAction(self.assetAction1)
         self.assetActionMenu.addAction(self.assetAction3)
         self.assetActionMenu.addAction(self.assetAction4)
+        self.assetActionMenu.addSeparator()
+        self.assetActionMenu.addAction(self.assetAction5)
         self.pushButton_assetAction.setMenu(self.assetActionMenu)
         self.assetActionMenu.aboutToShow.connect(lambda : self.taskTypeMenuRefresh('typeLib'))
         self.assetTaskTypeAction.triggered.connect(lambda : self.taskTypeChangeAction('typeLib'))
         self.assetAction1.triggered.connect(lambda : self.editTaskAction('typeLib'))
         self.assetAction3.triggered.connect(lambda : self.rvReviewAction('typeLib', None))
         self.assetAction4.triggered.connect(lambda : self.rvPreviousVersionShow('typeLib'))
+        self.assetAction5.triggered.connect(lambda : self.bigSyncSendAction('typeLib'))
         self.assetAction3.setVisible(False)
 
         # set the only active tab in related software.
@@ -3501,14 +3525,312 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         # in_python is None outside standalone, hence == True rather than the bare name.
         rvEnabled = in_python == True and rvReviewFolder != ''
 
+        # Send to BigSync opens only for a Task Type that bigSyncTaskPreset.txt has a row for, so a
+        # task with no Task Type, or a project with no preset, leaves it disabled. The Asset tab
+        # stays disabled until the preset covers asset tasks.
+        bigSyncEnabled = taskType != '' and any(taskType in eachRow[0] for eachRow in self.bigSyncTaskPresetRead())
+
         if inType == 'typeScene':
             self.shotTaskTypeAction.setText(rowText)
             self.shotAction3.setEnabled(rvEnabled)
             self.shotAction4.setEnabled(rvEnabled)
+            self.shotAction5.setEnabled(bigSyncEnabled)
         elif inType == 'typeLib':
             self.assetTaskTypeAction.setText(rowText)
             self.assetAction3.setEnabled(rvEnabled)
             self.assetAction4.setEnabled(rvEnabled)
+            self.assetAction5.setEnabled(False)
+
+
+    def bigSyncSiteListRead(self):
+        println('\ndef >>>>> bigSyncSiteListRead')
+
+        # The offices a job can go to, and this office, as a plain tuple. Both come from BigSync's
+        # own files, so the window offers exactly what BigSync accepts. BigSync's config starts
+        # with a byte order mark, hence utf-8-sig. Site names keep their case and are compared
+        # without it, the way BigSync compares them.
+        siteConfig = configparser.ConfigParser(interpolation=None)
+        siteConfig.read(bigSyncConfigPath, encoding='utf-8-sig')
+        siteNames = [eachSite.strip() for eachSite in siteConfig['common']['sites'].split(',') if eachSite.strip() != '']
+
+        locationConfig = configparser.ConfigParser(interpolation=None)
+        locationConfig.read(bigSyncLocationPath, encoding='utf-8-sig')
+        thisSite = locationConfig['Settings']['location'].strip()
+
+        targetSites = [eachSite for eachSite in siteNames if eachSite.lower() != thisSite.lower()]
+        self.printEcho('this site : {}   target sites : {}'.format(thisSite, targetSites))
+
+        return (targetSites, thisSite)
+
+
+    def bigSyncTaskPresetRead(self):
+        println('\ndef >>>>> bigSyncTaskPresetRead')
+
+        # The rows of the project's bigSyncTaskPreset.txt, each a plain list
+        # [task types, folder, target type, patterns, extensions], the three plural ones lists.
+        # A line is <TaskType>|<Folder>|<TargetType>|<Pattern>|<extension>, where TaskType, Pattern
+        # and extension take a comma separated list. An ALL row needs no Pattern, a FOLDER row no
+        # extension. A line starting with # is a remark for the user. The project selected in the
+        # comboBox is read, not currentProjWorkPath. An empty list when the project has no preset.
+        presetFullName = os.path.join(self.subDict[self.selProjPath], bigSyncTaskPresetName)
+        self.printEcho(presetFullName)
+
+        if not os.path.isfile(presetFullName):
+            return []
+
+        with open(presetFullName) as file:
+            contents = file.readlines()
+
+        def commaListSplit(inText):
+            return [eachName.strip() for eachName in inText.split(',') if eachName.strip() != '']
+
+        presetRows = []
+        for eachLine in contents:
+            eachLine = eachLine.strip()
+            if eachLine == '' or eachLine.startswith('#'):
+                continue
+
+            # Padded to five, so an ALL or FOLDER row can leave its last columns out.
+            taskTypes, folderName, targetType, patterns, extensions = (eachLine.split('|') + ['', '', '', ''])[:5]
+            extensionList = [eachExtension.lstrip('.').lower() for eachExtension in commaListSplit(extensions)]
+            presetRows.append([commaListSplit(taskTypes), folderName.strip(), targetType.strip().upper(), commaListSplit(patterns), extensionList])
+
+        self.printEcho(presetRows)
+
+        return presetRows
+
+
+    def bigSyncSendAsk(self, inTaskLabel, inTargetSites, inThisSite, inDefaultSite):
+        println('\ndef >>>>> bigSyncSendAsk')
+
+        # The Send to BigSync window. Returns a plain tuple (target site, latest versions,
+        # save mode), save mode being 'no', 'taskFolder' or 'custom'. Cancel, Esc and the window's
+        # X return an empty target site. Latest versions 0 shows as All.
+        dialog = QDialog(self)
+        dialog.setWindowTitle('Send to BigSync')
+        dialogLayout = QVBoxLayout(dialog)
+
+        taskLabel = QLabel('Task :  {}'.format(inTaskLabel))
+        taskLabel.setTextFormat(Qt.PlainText)
+        dialogLayout.addWidget(taskLabel)
+        dialogLayout.addSpacing(8)
+
+        siteGroupBox = QGroupBox('Target site   (this site : {})'.format(inThisSite))
+        siteLayout = QVBoxLayout(siteGroupBox)
+        siteButtonGroup = QButtonGroup(dialog)
+        for eachSite in inTargetSites:
+            siteRadioButton = QRadioButton(eachSite)
+            siteRadioButton.setChecked(eachSite == inDefaultSite)
+            siteButtonGroup.addButton(siteRadioButton)
+            siteLayout.addWidget(siteRadioButton)
+        dialogLayout.addWidget(siteGroupBox)
+
+        latestLayout = QHBoxLayout()
+        latestLayout.addWidget(QLabel('Number of latest versions :'))
+        latestSpinBox = QSpinBox()
+        latestSpinBox.setRange(0, 999)
+        latestSpinBox.setSpecialValueText('All')
+        latestSpinBox.setValue(1)
+        latestLayout.addWidget(latestSpinBox)
+        latestLayout.addStretch()
+        dialogLayout.addLayout(latestLayout)
+
+        # The button group id of each radio button is its row here, which is how the checked one
+        # turns back into its save mode.
+        saveModes = [['No', 'no'], ['Task Folder', 'taskFolder'], ['Custom', 'custom']]
+        saveGroupBox = QGroupBox('Save as Send List')
+        saveLayout = QHBoxLayout(saveGroupBox)
+        saveButtonGroup = QButtonGroup(dialog)
+        for eachRow, (eachText, eachMode) in enumerate(saveModes):
+            saveRadioButton = QRadioButton(eachText)
+            saveRadioButton.setChecked(eachMode == 'no')
+            saveButtonGroup.addButton(saveRadioButton, eachRow)
+            saveLayout.addWidget(saveRadioButton)
+        dialogLayout.addWidget(saveGroupBox)
+        dialogLayout.addSpacing(8)
+
+        buttonLayout = QHBoxLayout()
+        okButton = QPushButton('OK')
+        cancelButton = QPushButton('Cancel')
+        buttonLayout.addStretch()
+        buttonLayout.addWidget(okButton)
+        buttonLayout.addWidget(cancelButton)
+        dialogLayout.addLayout(buttonLayout)
+
+        okButton.setDefault(True)
+        okButton.clicked.connect(dialog.accept)
+        cancelButton.clicked.connect(dialog.reject)
+
+        if dialog.exec() != 1:
+            self.printEcho('Send to BigSync cancelled')
+            return ('', 0, '')
+
+        targetSite = siteButtonGroup.checkedButton().text()
+        saveMode = saveModes[saveButtonGroup.checkedId()][1]
+        self.printEcho('target site : {}   latest versions : {}   save mode : {}'.format(targetSite, latestSpinBox.value(), saveMode))
+
+        return (targetSite, latestSpinBox.value(), saveMode)
+
+
+    def bigSyncTaskItemsCollect(self, inTaskPath, inTaskType, inLatestCount, inPresetRows):
+        println('\ndef >>>>> bigSyncTaskItemsCollect')
+
+        # Every folder and file of one task that the preset rows for its Task Type pick, in preset
+        # order, as full paths. ALL takes the whole folder. FILE and FOLDER take the files or the
+        # folders sitting directly in it whose name matches one of the row's patterns, a FILE also
+        # needing one of the row's extensions (any extension when the row lists none).
+        # In a pattern, shotname is the shot (the asset on the Asset tab), taskname is the task
+        # folder's own name, not its Task Type, #### is a four digit version number and * is
+        # anything. Case is ignored, as Windows does.
+        # inLatestCount keeps the newest that many version numbers of each row, 0 keeps them all.
+        # Every name carrying a kept number goes, so v0012 and v0012_LayerMask, or the .nk and the
+        # .ae of one version, count as one version. A name with no #### in its pattern always goes.
+        # A folder the task does not have is skipped.
+        taskPath = os.path.normpath(inTaskPath)
+        taskName = os.path.basename(taskPath)
+        shotName = os.path.basename(os.path.dirname(os.path.dirname(taskPath)))
+
+        collectedItems = []
+        for taskTypes, folderName, targetType, patterns, extensions in inPresetRows:
+            if inTaskType not in taskTypes:
+                continue
+
+            folderPath = os.path.join(taskPath, folderName)
+            if not os.path.isdir(folderPath):
+                continue
+
+            if targetType == 'ALL':
+                if folderPath not in collectedItems:
+                    collectedItems.append(folderPath)
+                continue
+
+            if targetType not in ['FILE', 'FOLDER']:
+                println('bigSyncTaskPreset.txt : unknown TargetType < {} > for folder < {} >, row skipped.'.format(targetType, folderName))
+                continue
+
+            patternRegexes = []
+            for eachPattern in patterns:
+                regexText = ''
+                for eachToken in re.split(r'(shotname|taskname|####|\*)', eachPattern):
+                    if eachToken == 'shotname':
+                        regexText += re.escape(shotName)
+                    elif eachToken == 'taskname':
+                        regexText += re.escape(taskName)
+                    elif eachToken == '####':
+                        regexText += r'(\d{4})'
+                    elif eachToken == '*':
+                        regexText += '.*'
+                    else:
+                        regexText += re.escape(eachToken)
+                patternRegexes.append(re.compile(regexText + '$', re.IGNORECASE))
+
+            # [version number or None, full path] of every name the row matches.
+            matchedEntries = []
+            for eachName in sorted(os.listdir(folderPath)):
+                eachPath = os.path.join(folderPath, eachName)
+
+                if targetType == 'FILE':
+                    if not os.path.isfile(eachPath):
+                        continue
+                    nameStem, nameExtension = os.path.splitext(eachName)
+                    if extensions != [] and nameExtension.lstrip('.').lower() not in extensions:
+                        continue
+                else:
+                    if not os.path.isdir(eachPath):
+                        continue
+                    nameStem = eachName
+
+                for eachRegex in patternRegexes:
+                    nameMatch = eachRegex.match(nameStem)
+                    if nameMatch:
+                        if nameMatch.groups():
+                            matchedEntries.append([int(nameMatch.group(1)), eachPath])
+                        else:
+                            matchedEntries.append([None, eachPath])
+                        break
+
+            versionNumbers = sorted(set(eachNumber for eachNumber, eachPath in matchedEntries if eachNumber is not None), reverse=True)
+            if inLatestCount > 0:
+                versionNumbers = versionNumbers[:inLatestCount]
+
+            for eachNumber, eachPath in matchedEntries:
+                if (eachNumber is None or eachNumber in versionNumbers) and eachPath not in collectedItems:
+                    collectedItems.append(eachPath)
+
+        self.printEcho(collectedItems)
+
+        return collectedItems
+
+
+    def bigSyncSendAction(self, inType):
+        println('\ndef >>>>> bigSyncSendAction')
+
+        # Send to BigSync for one task. Asks the target site, how many latest versions and where to
+        # keep the send list, collects the task's folders and files from bigSyncTaskPreset.txt and
+        # writes them one full path per line, under a few # remark lines BigSync skips.
+        # Phase 1 : the list opens in Notepad to be checked, nothing is handed to BigSync yet.
+        for eachPath in [bigSyncConfigPath, bigSyncLocationPath]:
+            if not os.path.isfile(eachPath):
+                QMessageBox.warning(self, 'Ooops!', 'Send to BigSync\n\nBigSync file not found :\n\n{}'.format(eachPath))
+                return
+
+        taskLocationPath = os.path.normpath(self.taskLocationPathRead(inType))
+        taskType = self.taskTypeRead(taskLocationPath)
+        shotPath = os.path.dirname(os.path.dirname(taskLocationPath))
+        taskLabel = os.path.join(os.path.basename(os.path.dirname(shotPath)), os.path.basename(shotPath), os.path.basename(taskLocationPath))
+
+        targetSites, thisSite = self.bigSyncSiteListRead()
+
+        defaultSite = targetSites[0]
+        for eachSite, eachTarget in bigSyncDefaultTargetList:
+            if eachSite.lower() == thisSite.lower() and eachTarget in targetSites:
+                defaultSite = eachTarget
+
+        targetSite, latestCount, saveMode = self.bigSyncSendAsk('{}   (Task Type : {})'.format(taskLabel, taskType), targetSites, thisSite, defaultSite)
+        if targetSite == '':
+            return
+
+        sendItems = self.bigSyncTaskItemsCollect(taskLocationPath, taskType, latestCount, self.bigSyncTaskPresetRead())
+        if sendItems == []:
+            QMessageBox.information(self, 'message', 'Send to BigSync\n\nNothing in this task matches {} :\n\n{}'.format(bigSyncTaskPresetName, taskLocationPath))
+            return
+
+        # No keeps the list in this PC's temp folder, only for BigSync to read. Task Folder keeps it
+        # at the top of the task folder. Custom asks where, starting in the task folder.
+        sendListName = 'bigSyncSendList_{}.txt'.format(time.strftime('%Y%m%d_%H%M%S'))
+        if saveMode == 'taskFolder':
+            sendListFullName = os.path.join(taskLocationPath, sendListName)
+        elif saveMode == 'custom':
+            sendListFullName, selectedFilter = QFileDialog.getSaveFileName(self, 'Save Send List', os.path.join(taskLocationPath, sendListName), 'Text Files (*.txt)')
+            if sendListFullName == '':
+                return
+            sendListFullName = os.path.normpath(sendListFullName)
+        else:
+            temporaryFolderPath = os.path.join(os.environ['TEMP'], 'bigKeeper')
+            os.makedirs(temporaryFolderPath, exist_ok=True)
+            sendListFullName = os.path.join(temporaryFolderPath, sendListName)
+
+        if latestCount == 0:
+            latestText = 'All'
+        else:
+            latestText = str(latestCount)
+
+        listLines = ['# BigKeeper send list',
+                     '# Project   : {}'.format(self.selProj),
+                     '# Task      : {}   (Task Type : {})'.format(taskLabel, taskType),
+                     '# Target    : {}   (from {})'.format(targetSite, thisSite),
+                     '# Latest    : {}'.format(latestText),
+                     '# Items     : {}'.format(len(sendItems)),
+                     '# Created   : {}'.format(time.strftime('%Y-%m-%d %H:%M:%S'))] + sendItems
+
+        # Text mode writes CRLF, like every other list file here. UTF-8 keeps any path intact.
+        with open(sendListFullName, 'w', encoding='utf-8') as file:
+            file.write('\n'.join(listLines) + '\n')
+        self.printEcho(sendListFullName)
+
+        # Phase 1 : opened in Notepad to be checked. Phase 2 hands it to BigSync instead.
+        subprocess.Popen(['notepad.exe', sendListFullName])
+
 
 
     def taskTypeChangeAction(self, inType):
