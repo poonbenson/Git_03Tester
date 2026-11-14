@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261114a'
+winTitlePrefix = 'BigKeeper_20261114b'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -201,6 +201,10 @@ bigSyncDefaultTargetList = [['CA', 'UK'], ['UK', 'HongKong'], ['HongKong', 'UK']
 bigSyncTaskPresetName = 'bigSyncTaskPreset.txt'
 # The per project preset, in the project work folder, that says which folders and files of a
 # task Send to BigSync collects. Read by bigSyncTaskPresetRead.
+bigSyncSenderBatPath = r'N:\bpPipeline\bigSync\scripts\sender.bat'
+# Opens BigSync's sender window. Send to BigSync hands it the target site, --list=<send list>
+# and --note=<job name>.
+
 
 visualBoardStorageRootPath = r'K:\z_VisualBoard'
 # Every Visual Board lives here, mirroring the project tree under its own project folder :
@@ -3767,9 +3771,10 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         # Send to BigSync for one task. Asks the target site, how many latest versions and where to
         # keep the send list, collects the task's folders and files from bigSyncTaskPreset.txt and
-        # writes them one full path per line, under a few # remark lines BigSync skips.
-        # Phase 1 : the list opens in Notepad to be checked, nothing is handed to BigSync yet.
-        for eachPath in [bigSyncConfigPath, bigSyncLocationPath]:
+        # writes them one full path per line, under a few # remark lines BigSync skips. Then
+        # BigSync's sender window opens with the list loaded and the job name filled in, for the
+        # user to check and Send.
+        for eachPath in [bigSyncConfigPath, bigSyncLocationPath, bigSyncSenderBatPath]:
             if not os.path.isfile(eachPath):
                 QMessageBox.warning(self, 'Ooops!', 'Send to BigSync\n\nBigSync file not found :\n\n{}'.format(eachPath))
                 return
@@ -3828,8 +3833,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             file.write('\n'.join(listLines) + '\n')
         self.printEcho(sendListFullName)
 
-        # Phase 1 : opened in Notepad to be checked. Phase 2 hands it to BigSync instead.
-        subprocess.Popen(['notepad.exe', sendListFullName])
+        # The site and the job name go on the command line and the list holds only paths, so a
+        # kept list can be sent again to any site. One command string with every argument quoted
+        # keeps a path with spaces, & or % intact through cmd. CREATE_NO_WINDOW gives sender.bat
+        # a hidden console of its own, so its chcp never touches BigKeeper's console.
+        jobName = '{}_{}'.format(os.path.basename(shotPath), os.path.basename(taskLocationPath))
+        launchCommand = '"{}" "{}" "--list={}" "--note={}"'.format(bigSyncSenderBatPath, targetSite, sendListFullName, jobName)
+        println(launchCommand)
+        subprocess.Popen(launchCommand, creationflags=subprocess.CREATE_NO_WINDOW)
 
 
 
