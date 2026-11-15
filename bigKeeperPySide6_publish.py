@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261115a'
+winTitlePrefix = 'BigKeeper_20261115b'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
