@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261115b'
+winTitlePrefix = 'BigKeeper_20261115c'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -3989,6 +3989,109 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         return sendItems
 
+
+    def bigSyncSendAction(self, inType):
+        println('\ndef >>>>> bigSyncSendAction')
+
+        # Send to BigSync for one task. Asks the target site, Pre-Defined Folders or the Entire Task
+        # Folder, how many latest versions and where to keep the send list. Collects the items and
+        # shows them for a last check, with the task's other top folders unticked, where any can be
+        # ticked, unticked or more added. Writes the ticked ones one full path per line, under a few
+        # # remark lines BigSync skips. Then BigSync's sender window opens with the list loaded and
+        # the job name filled in, for the user to check and Send. Open on both tabs for every task :
+        # a Task Type with no row in bigSyncTaskPreset.txt can still send its Entire Task Folder.
+        for eachPath in [bigSyncConfigPath, bigSyncLocationPath, bigSyncSenderBatPath]:
+            if not os.path.isfile(eachPath):
+                QMessageBox.warning(self, 'Ooops!', 'Send to BigSync\n\nBigSync file not found :\n\n{}'.format(eachPath))
+                return
+
+        taskLocationPath = os.path.normpath(self.taskLocationPathRead(inType))
+        taskType = self.taskTypeRead(taskLocationPath)
+        shotPath = os.path.dirname(os.path.dirname(taskLocationPath))
+        taskLabel = os.path.join(os.path.basename(os.path.dirname(shotPath)), os.path.basename(shotPath), os.path.basename(taskLocationPath))
+        taskText = '{}   (Task Type : {})'.format(taskLabel, taskType)
+        taskPresetRows = [eachRow for eachRow in self.bigSyncTaskPresetRead() if taskType in eachRow[0]]
+
+        targetSites, thisSite = self.bigSyncSiteListRead()
+
+        defaultSite = targetSites[0]
+        for eachSite, eachTarget in bigSyncDefaultTargetList:
+            if eachSite.lower() == thisSite.lower() and eachTarget in targetSites:
+                defaultSite = eachTarget
+
+        targetSite, folderMode, latestCount, saveMode = self.bigSyncSendAsk(taskText, taskLocationPath, taskType, taskPresetRows, targetSites, thisSite, defaultSite)
+        if targetSite == '':
+            return
+
+        # [from, full path, ticked] rows for the review. Each preset row is collected on its own, so
+        # the review can say which row picked an item. An item two rows pick shows once, under the
+        # first. The task's top folders the preset rows do not name follow, unticked : ticking one
+        # sends that folder whole. Windows ignores case, so the name check does too.
+        if folderMode == 'entireTask':
+            folderText = 'Entire Task Folder'
+            itemRows = [[folderText, taskLocationPath, True]]
+        else:
+            folderText = 'Pre-Defined Folders'
+            itemRows = []
+            for eachRow in taskPresetRows:
+                for eachPath in self.bigSyncTaskItemsCollect(taskLocationPath, taskType, latestCount, [eachRow]):
+                    if eachPath not in [eachItem[1] for eachItem in itemRows]:
+                        itemRows.append(['{}  {}'.format(eachRow[1], eachRow[2]), eachPath, True])
+            presetFolderNames = [os.path.normcase(eachRow[1]) for eachRow in taskPresetRows]
+            for eachName in sorted(os.listdir(taskLocationPath), key=str.lower):
+                eachPath = os.path.join(taskLocationPath, eachName)
+                if os.path.isdir(eachPath) and os.path.normcase(eachName) not in presetFolderNames:
+                    itemRows.append(['Not in preset', eachPath, False])
+            if itemRows == []:
+                QMessageBox.information(self, 'message', 'Send to BigSync\n\nNothing in this task matches {} :\n\n{}'.format(bigSyncTaskPresetName, taskLocationPath))
+                return
+
+        sendItems = self.bigSyncSendReview(taskText, taskLocationPath, targetSite, itemRows)
+        if sendItems == []:
+            return
+
+        # No keeps the list in this PC's temp folder, only for BigSync to read. Task Folder keeps it
+        # at the top of the task folder. Custom asks where, starting in the task folder.
+        sendListName = 'bigSyncSendList_{}.txt'.format(time.strftime('%Y%m%d_%H%M%S'))
+        if saveMode == 'taskFolder':
+            sendListFullName = os.path.join(taskLocationPath, sendListName)
+        elif saveMode == 'custom':
+            sendListFullName, selectedFilter = QFileDialog.getSaveFileName(self, 'Save Send List', os.path.join(taskLocationPath, sendListName), 'Text Files (*.txt)')
+            if sendListFullName == '':
+                return
+            sendListFullName = os.path.normpath(sendListFullName)
+        else:
+            temporaryFolderPath = os.path.join(os.environ['TEMP'], 'bigKeeper')
+            os.makedirs(temporaryFolderPath, exist_ok=True)
+            sendListFullName = os.path.join(temporaryFolderPath, sendListName)
+
+        if latestCount == 0:
+            latestText = 'All'
+        else:
+            latestText = str(latestCount)
+
+        listLines = ['# BigKeeper send list',
+                     '# Project   : {}'.format(self.selProj),
+                     '# Task      : {}'.format(taskText),
+                     '# Target    : {}   (from {})'.format(targetSite, thisSite),
+                     '# Folders   : {}'.format(folderText),
+                     '# Latest    : {}'.format(latestText),
+                     '# Items     : {}'.format(len(sendItems)),
+                     '# Created   : {}'.format(time.strftime('%Y-%m-%d %H:%M:%S'))] + sendItems
+
+        # Text mode writes CRLF, like every other list file here. UTF-8 keeps any path intact.
+        with open(sendListFullName, 'w', encoding='utf-8') as file:
+            file.write('\n'.join(listLines) + '\n')
+        self.printEcho(sendListFullName)
+
+        # The site and the job name go on the command line and the list holds only paths, so a
+        # kept list can be sent again to any site. One command string with every argument quoted
+        # keeps a path with spaces, & or % intact through cmd. CREATE_NO_WINDOW gives sender.bat
+        # a hidden console of its own, so its chcp never touches BigKeeper's console.
+        jobName = '{}_{}'.format(os.path.basename(shotPath), os.path.basename(taskLocationPath))
+        launchCommand = '"{}" "{}" "--list={}" "--note={}"'.format(bigSyncSenderBatPath, targetSite, sendListFullName, jobName)
+        println(launchCommand)
+        subprocess.Popen(launchCommand, creationflags=subprocess.CREATE_NO_WINDOW)
 
     def taskTypeChangeAction(self, inType):
         println('\ndef >>>>> taskTypeChangeAction')
