@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261115c'
+winTitlePrefix = 'BigKeeper_20261115d'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -3636,9 +3636,6 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         presetTable.horizontalHeader().setStretchLastSection(True)
         dialogLayout.addWidget(presetTable)
 
-        if inTaskPresetRows == []:
-            dialogLayout.addWidget(QLabel('{} has no row for this Task Type, so only the Entire Task Folder can be sent.'.format(bigSyncTaskPresetName)))
-
         closeButton = QPushButton('Close')
         closeButton.clicked.connect(dialog.accept)
         buttonLayout = QHBoxLayout()
@@ -3659,6 +3656,8 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         # The slider on top picks Pre-Defined Folders, the bigSyncTaskPreset.txt rows of this Task
         # Type, or the Entire Task Folder. A Task Type with no row leaves only the Entire Task
         # Folder. The Entire Task Folder carries every version, so Versions greys out and reads All.
+        # With no row [i] has nothing to show either and greys out too. Its tooltip tells a project
+        # with no bigSyncTaskPreset.txt from one whose preset has no row for this Task Type.
         dialog = QDialog(self)
         dialog.setWindowTitle('Send to BigSync')
         dialogLayout = QVBoxLayout(dialog)
@@ -3769,6 +3768,11 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             folderSlider.setValue(1)
             folderSlider.setEnabled(False)
             preDefinedLabel.setEnabled(False)
+            infoButton.setEnabled(False)
+            if os.path.isfile(os.path.join(self.subDict[self.selProjPath], bigSyncTaskPresetName)):
+                infoButton.setToolTip('{} has no row for this Task Type'.format(bigSyncTaskPresetName))
+            else:
+                infoButton.setToolTip('This project has no {}'.format(bigSyncTaskPresetName))
         folderModeRefresh(folderSlider.value())
 
         infoButton.clicked.connect(lambda : self.bigSyncPresetInfoShow(dialog, inTaskPath, inTaskType, latestCountRead(), inTaskPresetRows))
