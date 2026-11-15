@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261114b'
+winTitlePrefix = 'BigKeeper_20261115a'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -3529,21 +3529,14 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         # in_python is None outside standalone, hence == True rather than the bare name.
         rvEnabled = in_python == True and rvReviewFolder != ''
 
-        # Send to BigSync opens only for a Task Type that bigSyncTaskPreset.txt has a row for, so a
-        # task with no Task Type, or a project with no preset, leaves it disabled. The Asset tab
-        # stays disabled until the preset covers asset tasks.
-        bigSyncEnabled = taskType != '' and any(taskType in eachRow[0] for eachRow in self.bigSyncTaskPresetRead())
-
         if inType == 'typeScene':
             self.shotTaskTypeAction.setText(rowText)
             self.shotAction3.setEnabled(rvEnabled)
             self.shotAction4.setEnabled(rvEnabled)
-            self.shotAction5.setEnabled(bigSyncEnabled)
         elif inType == 'typeLib':
             self.assetTaskTypeAction.setText(rowText)
             self.assetAction3.setEnabled(rvEnabled)
             self.assetAction4.setEnabled(rvEnabled)
-            self.assetAction5.setEnabled(False)
 
 
     def bigSyncSiteListRead(self):
@@ -3603,16 +3596,94 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         return presetRows
 
+    def bigSyncPresetInfoShow(self, inParent, inTaskPath, inTaskType, inLatestCount, inTaskPresetRows):
+        println('\ndef >>>>> bigSyncPresetInfoShow')
 
-    def bigSyncSendAsk(self, inTaskLabel, inTargetSites, inThisSite, inDefaultSite):
+        # The [i] of the Send to BigSync window : the bigSyncTaskPreset.txt rows of this Task Type
+        # as a table, each with what it finds in this task right now for the Versions setting the
+        # window holds. A folder the task does not have reads missing.
+        if inLatestCount == 0:
+            versionsText = 'All'
+        else:
+            versionsText = 'Latest {}'.format(inLatestCount)
+
+        dialog = QDialog(inParent)
+        dialog.setWindowTitle('Pre-Defined Folders')
+        dialog.resize(720, 360)
+        dialogLayout = QVBoxLayout(dialog)
+
+        headerLabel = QLabel('Task Type :  {}      Versions :  {}\n{}'.format(inTaskType, versionsText, os.path.normpath(os.path.join(self.subDict[self.selProjPath], bigSyncTaskPresetName))))
+        headerLabel.setTextFormat(Qt.PlainText)
+        dialogLayout.addWidget(headerLabel)
+
+        columnNames = ['Folder', 'Target Type', 'Pattern', 'Extension', 'Found']
+        presetTable = QTableWidget(len(inTaskPresetRows), len(columnNames))
+        presetTable.setHorizontalHeaderLabels(columnNames)
+        presetTable.verticalHeader().setVisible(False)
+        presetTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        presetTable.setSelectionMode(QAbstractItemView.NoSelection)
+
+        for rowIndex, presetRow in enumerate(inTaskPresetRows):
+            taskTypes, folderName, targetType, patterns, extensions = presetRow
+            if os.path.isdir(os.path.join(inTaskPath, folderName)):
+                foundText = str(len(self.bigSyncTaskItemsCollect(inTaskPath, inTaskType, inLatestCount, [presetRow])))
+            else:
+                foundText = 'missing'
+            for columnIndex, cellText in enumerate([folderName, targetType, ', '.join(patterns), ', '.join(extensions), foundText]):
+                presetTable.setItem(rowIndex, columnIndex, QTableWidgetItem(cellText))
+
+        presetTable.resizeColumnsToContents()
+        presetTable.horizontalHeader().setStretchLastSection(True)
+        dialogLayout.addWidget(presetTable)
+
+        if inTaskPresetRows == []:
+            dialogLayout.addWidget(QLabel('{} has no row for this Task Type, so only the Entire Task Folder can be sent.'.format(bigSyncTaskPresetName)))
+
+        closeButton = QPushButton('Close')
+        closeButton.clicked.connect(dialog.accept)
+        buttonLayout = QHBoxLayout()
+        buttonLayout.addStretch()
+        buttonLayout.addWidget(closeButton)
+        dialogLayout.addLayout(buttonLayout)
+
+        dialog.exec()
+
+
+    def bigSyncSendAsk(self, inTaskLabel, inTaskPath, inTaskType, inTaskPresetRows, inTargetSites, inThisSite, inDefaultSite):
         println('\ndef >>>>> bigSyncSendAsk')
 
-        # The Send to BigSync window. Returns a plain tuple (target site, latest versions,
-        # save mode), save mode being 'no', 'taskFolder' or 'custom'. Cancel, Esc and the window's
-        # X return an empty target site. Latest versions 0 shows as All.
+        # The Send to BigSync window. Returns a plain tuple (target site, folder mode, latest
+        # versions, save mode) : folder mode 'preDefined' or 'entireTask', latest versions 0 for
+        # All, save mode 'no', 'taskFolder' or 'custom'. Cancel, Esc and the window's X return an
+        # empty target site.
+        # The slider on top picks Pre-Defined Folders, the bigSyncTaskPreset.txt rows of this Task
+        # Type, or the Entire Task Folder. A Task Type with no row leaves only the Entire Task
+        # Folder. The Entire Task Folder carries every version, so Versions greys out and reads All.
         dialog = QDialog(self)
         dialog.setWindowTitle('Send to BigSync')
         dialogLayout = QVBoxLayout(dialog)
+
+        # Webdings draws its i as the circled information sign.
+        infoButton = QToolButton()
+        infoButton.setText('i')
+        infoButton.setFont(QFont('Webdings', 14))
+        infoButton.setAutoRaise(True)
+        infoButton.setToolTip('Pre-Defined Folders of this Task Type')
+        preDefinedLabel = QLabel('Pre-Defined Folders')
+        folderSlider = QSlider(Qt.Horizontal)
+        folderSlider.setRange(0, 1)
+        folderSlider.setPageStep(1)
+        folderSlider.setFixedWidth(48)
+        entireTaskLabel = QLabel('Entire Task Folder')
+
+        folderLayout = QHBoxLayout()
+        folderLayout.addWidget(infoButton)
+        folderLayout.addWidget(preDefinedLabel)
+        folderLayout.addWidget(folderSlider)
+        folderLayout.addWidget(entireTaskLabel)
+        folderLayout.addStretch()
+        dialogLayout.addLayout(folderLayout)
+        dialogLayout.addSpacing(8)
 
         taskLabel = QLabel('Task :  {}'.format(inTaskLabel))
         taskLabel.setTextFormat(Qt.PlainText)
@@ -3629,15 +3700,30 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             siteLayout.addWidget(siteRadioButton)
         dialogLayout.addWidget(siteGroupBox)
 
-        latestLayout = QHBoxLayout()
-        latestLayout.addWidget(QLabel('Number of latest versions :'))
+        # The spin box sits between the Latest radio button and its word, and greys out with All.
+        # One widget holds the row, so the slider can grey it out as a whole.
+        versionsWidget = QWidget()
+        versionsLayout = QHBoxLayout(versionsWidget)
+        versionsLayout.setContentsMargins(0, 0, 0, 0)
+        latestRadioButton = QRadioButton()
+        latestRadioButton.setChecked(True)
         latestSpinBox = QSpinBox()
-        latestSpinBox.setRange(0, 999)
-        latestSpinBox.setSpecialValueText('All')
+        latestSpinBox.setRange(1, 999)
         latestSpinBox.setValue(1)
-        latestLayout.addWidget(latestSpinBox)
-        latestLayout.addStretch()
-        dialogLayout.addLayout(latestLayout)
+        allRadioButton = QRadioButton('All')
+        versionsButtonGroup = QButtonGroup(dialog)
+        versionsButtonGroup.addButton(latestRadioButton)
+        versionsButtonGroup.addButton(allRadioButton)
+        latestRadioButton.toggled.connect(latestSpinBox.setEnabled)
+
+        versionsLayout.addWidget(QLabel('Versions :'))
+        versionsLayout.addWidget(latestRadioButton)
+        versionsLayout.addWidget(latestSpinBox)
+        versionsLayout.addWidget(QLabel('Latest'))
+        versionsLayout.addSpacing(16)
+        versionsLayout.addWidget(allRadioButton)
+        versionsLayout.addStretch()
+        dialogLayout.addWidget(versionsWidget)
 
         # The button group id of each radio button is its row here, which is how the checked one
         # turns back into its save mode.
@@ -3665,15 +3751,39 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         okButton.clicked.connect(dialog.accept)
         cancelButton.clicked.connect(dialog.reject)
 
+        def latestCountRead():
+            if folderSlider.value() == 1 or allRadioButton.isChecked():
+                return 0
+            return latestSpinBox.value()
+
+        # The side the slider points to reads bold.
+        def folderModeRefresh(inValue):
+            for eachValue, eachLabel in enumerate([preDefinedLabel, entireTaskLabel]):
+                labelFont = eachLabel.font()
+                labelFont.setBold(eachValue == inValue)
+                eachLabel.setFont(labelFont)
+            versionsWidget.setEnabled(inValue == 0)
+
+        folderSlider.valueChanged.connect(folderModeRefresh)
+        if inTaskPresetRows == []:
+            folderSlider.setValue(1)
+            folderSlider.setEnabled(False)
+            preDefinedLabel.setEnabled(False)
+        folderModeRefresh(folderSlider.value())
+
+        infoButton.clicked.connect(lambda : self.bigSyncPresetInfoShow(dialog, inTaskPath, inTaskType, latestCountRead(), inTaskPresetRows))
+
         if dialog.exec() != 1:
             self.printEcho('Send to BigSync cancelled')
-            return ('', 0, '')
+            return ('', '', 0, '')
 
         targetSite = siteButtonGroup.checkedButton().text()
+        folderMode = ['preDefined', 'entireTask'][folderSlider.value()]
+        latestCount = latestCountRead()
         saveMode = saveModes[saveButtonGroup.checkedId()][1]
-        self.printEcho('target site : {}   latest versions : {}   save mode : {}'.format(targetSite, latestSpinBox.value(), saveMode))
+        self.printEcho('target site : {}   folder mode : {}   latest versions : {}   save mode : {}'.format(targetSite, folderMode, latestCount, saveMode))
 
-        return (targetSite, latestSpinBox.value(), saveMode)
+        return (targetSite, folderMode, latestCount, saveMode)
 
 
     def bigSyncTaskItemsCollect(self, inTaskPath, inTaskType, inLatestCount, inPresetRows):
@@ -3766,82 +3876,118 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         return collectedItems
 
 
-    def bigSyncSendAction(self, inType):
-        println('\ndef >>>>> bigSyncSendAction')
+    def bigSyncSendReview(self, inTaskLabel, inTaskPath, inTargetSite, inItemRows):
+        println('\ndef >>>>> bigSyncSendReview')
 
-        # Send to BigSync for one task. Asks the target site, how many latest versions and where to
-        # keep the send list, collects the task's folders and files from bigSyncTaskPreset.txt and
-        # writes them one full path per line, under a few # remark lines BigSync skips. Then
-        # BigSync's sender window opens with the list loaded and the job name filled in, for the
-        # user to check and Send.
-        for eachPath in [bigSyncConfigPath, bigSyncLocationPath, bigSyncSenderBatPath]:
-            if not os.path.isfile(eachPath):
-                QMessageBox.warning(self, 'Ooops!', 'Send to BigSync\n\nBigSync file not found :\n\n{}'.format(eachPath))
+        # The last look before BigSync opens : every item that can go, with where it came from and
+        # whether it starts ticked. Tick or untick any of them, Add Files... and Add Folder... for
+        # anything else, which start ticked. Returns the ticked full paths in list order, or an
+        # empty list for Cancel, Esc and the window's X. OK stays disabled while nothing is ticked,
+        # so an empty list always means cancelled. inItemRows holds [from, full path, ticked] rows.
+        # A path inside the task shows relative to it, with the full path in its tooltip.
+        dialog = QDialog(self)
+        dialog.setWindowTitle('Send to BigSync - Review')
+        dialog.resize(900, 480)
+        dialogLayout = QVBoxLayout(dialog)
+
+        headerLabel = QLabel('Task :  {}\nTo :  {}'.format(inTaskLabel, inTargetSite))
+        headerLabel.setTextFormat(Qt.PlainText)
+        dialogLayout.addWidget(headerLabel)
+
+        itemTree = QTreeWidget()
+        itemTree.setHeaderLabels(['Item', 'Kind', 'From'])
+        itemTree.setRootIsDecorated(False)
+        dialogLayout.addWidget(itemTree)
+
+        addFilesButton = QPushButton('Add Files...')
+        addFolderButton = QPushButton('Add Folder...')
+        countLabel = QLabel()
+        addLayout = QHBoxLayout()
+        addLayout.addWidget(addFilesButton)
+        addLayout.addWidget(addFolderButton)
+        addLayout.addStretch()
+        addLayout.addWidget(countLabel)
+        dialogLayout.addLayout(addLayout)
+        dialogLayout.addSpacing(8)
+
+        buttonLayout = QHBoxLayout()
+        okButton = QPushButton('OK')
+        cancelButton = QPushButton('Cancel')
+        buttonLayout.addStretch()
+        buttonLayout.addWidget(okButton)
+        buttonLayout.addWidget(cancelButton)
+        dialogLayout.addLayout(buttonLayout)
+
+        okButton.setDefault(True)
+        okButton.clicked.connect(dialog.accept)
+        cancelButton.clicked.connect(dialog.reject)
+
+        def treeItemsRead():
+            return [itemTree.topLevelItem(eachIndex) for eachIndex in range(itemTree.topLevelItemCount())]
+
+        def tickedPathsRead():
+            return [treeItem.data(0, Qt.UserRole) for treeItem in treeItemsRead() if treeItem.checkState(0) == Qt.Checked]
+
+        def countRefresh():
+            tickedCount = len(tickedPathsRead())
+            countLabel.setText('{} of {} items ticked'.format(tickedCount, itemTree.topLevelItemCount()))
+            okButton.setEnabled(tickedCount > 0)
+
+        # A path already listed is not added twice. Windows ignores case, so the check does too.
+        def itemAdd(inFrom, inFullPath, inTicked):
+            if os.path.normcase(inFullPath) in [os.path.normcase(treeItem.data(0, Qt.UserRole)) for treeItem in treeItemsRead()]:
                 return
+            if os.path.normcase(inFullPath).startswith(os.path.normcase(os.path.join(inTaskPath, ''))):
+                itemText = os.path.relpath(inFullPath, inTaskPath)
+            else:
+                itemText = inFullPath
+            if os.path.isdir(inFullPath):
+                kindText = 'Folder'
+            else:
+                kindText = 'File'
+            treeItem = QTreeWidgetItem([itemText, kindText, inFrom])
+            treeItem.setData(0, Qt.UserRole, inFullPath)
+            treeItem.setToolTip(0, inFullPath)
+            if inTicked:
+                treeItem.setCheckState(0, Qt.Checked)
+            else:
+                treeItem.setCheckState(0, Qt.Unchecked)
+            itemTree.addTopLevelItem(treeItem)
 
-        taskLocationPath = os.path.normpath(self.taskLocationPathRead(inType))
-        taskType = self.taskTypeRead(taskLocationPath)
-        shotPath = os.path.dirname(os.path.dirname(taskLocationPath))
-        taskLabel = os.path.join(os.path.basename(os.path.dirname(shotPath)), os.path.basename(shotPath), os.path.basename(taskLocationPath))
+        # QFileDialog.getOpenFileNames returns (file names, selected filter), the second always
+        # filled. getExistingDirectory returns one string, empty on Cancel.
+        def filesAdd():
+            fullNames, selectedFilter = QFileDialog.getOpenFileNames(dialog, 'Add Files', inTaskPath)
+            for eachFullName in fullNames:
+                itemAdd('Added', os.path.normpath(eachFullName), True)
+            itemTree.resizeColumnToContents(0)
+            countRefresh()
 
-        targetSites, thisSite = self.bigSyncSiteListRead()
+        def folderAdd():
+            folderPath = QFileDialog.getExistingDirectory(dialog, 'Add Folder', inTaskPath)
+            if folderPath != '':
+                itemAdd('Added', os.path.normpath(folderPath), True)
+            itemTree.resizeColumnToContents(0)
+            countRefresh()
 
-        defaultSite = targetSites[0]
-        for eachSite, eachTarget in bigSyncDefaultTargetList:
-            if eachSite.lower() == thisSite.lower() and eachTarget in targetSites:
-                defaultSite = eachTarget
+        for eachFrom, eachFullPath, eachTicked in inItemRows:
+            itemAdd(eachFrom, eachFullPath, eachTicked)
+        for eachColumn in range(itemTree.columnCount()):
+            itemTree.resizeColumnToContents(eachColumn)
+        countRefresh()
 
-        targetSite, latestCount, saveMode = self.bigSyncSendAsk('{}   (Task Type : {})'.format(taskLabel, taskType), targetSites, thisSite, defaultSite)
-        if targetSite == '':
-            return
+        itemTree.itemChanged.connect(lambda treeItem, column : countRefresh())
+        addFilesButton.clicked.connect(filesAdd)
+        addFolderButton.clicked.connect(folderAdd)
 
-        sendItems = self.bigSyncTaskItemsCollect(taskLocationPath, taskType, latestCount, self.bigSyncTaskPresetRead())
-        if sendItems == []:
-            QMessageBox.information(self, 'message', 'Send to BigSync\n\nNothing in this task matches {} :\n\n{}'.format(bigSyncTaskPresetName, taskLocationPath))
-            return
+        if dialog.exec() != 1:
+            self.printEcho('Send to BigSync cancelled at the review')
+            return []
 
-        # No keeps the list in this PC's temp folder, only for BigSync to read. Task Folder keeps it
-        # at the top of the task folder. Custom asks where, starting in the task folder.
-        sendListName = 'bigSyncSendList_{}.txt'.format(time.strftime('%Y%m%d_%H%M%S'))
-        if saveMode == 'taskFolder':
-            sendListFullName = os.path.join(taskLocationPath, sendListName)
-        elif saveMode == 'custom':
-            sendListFullName, selectedFilter = QFileDialog.getSaveFileName(self, 'Save Send List', os.path.join(taskLocationPath, sendListName), 'Text Files (*.txt)')
-            if sendListFullName == '':
-                return
-            sendListFullName = os.path.normpath(sendListFullName)
-        else:
-            temporaryFolderPath = os.path.join(os.environ['TEMP'], 'bigKeeper')
-            os.makedirs(temporaryFolderPath, exist_ok=True)
-            sendListFullName = os.path.join(temporaryFolderPath, sendListName)
+        sendItems = tickedPathsRead()
+        self.printEcho(sendItems)
 
-        if latestCount == 0:
-            latestText = 'All'
-        else:
-            latestText = str(latestCount)
-
-        listLines = ['# BigKeeper send list',
-                     '# Project   : {}'.format(self.selProj),
-                     '# Task      : {}   (Task Type : {})'.format(taskLabel, taskType),
-                     '# Target    : {}   (from {})'.format(targetSite, thisSite),
-                     '# Latest    : {}'.format(latestText),
-                     '# Items     : {}'.format(len(sendItems)),
-                     '# Created   : {}'.format(time.strftime('%Y-%m-%d %H:%M:%S'))] + sendItems
-
-        # Text mode writes CRLF, like every other list file here. UTF-8 keeps any path intact.
-        with open(sendListFullName, 'w', encoding='utf-8') as file:
-            file.write('\n'.join(listLines) + '\n')
-        self.printEcho(sendListFullName)
-
-        # The site and the job name go on the command line and the list holds only paths, so a
-        # kept list can be sent again to any site. One command string with every argument quoted
-        # keeps a path with spaces, & or % intact through cmd. CREATE_NO_WINDOW gives sender.bat
-        # a hidden console of its own, so its chcp never touches BigKeeper's console.
-        jobName = '{}_{}'.format(os.path.basename(shotPath), os.path.basename(taskLocationPath))
-        launchCommand = '"{}" "{}" "--list={}" "--note={}"'.format(bigSyncSenderBatPath, targetSite, sendListFullName, jobName)
-        println(launchCommand)
-        subprocess.Popen(launchCommand, creationflags=subprocess.CREATE_NO_WINDOW)
-
+        return sendItems
 
 
     def taskTypeChangeAction(self, inType):
