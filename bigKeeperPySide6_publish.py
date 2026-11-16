@@ -1,4 +1,4 @@
-winTitlePrefix = 'BigKeeper_20261115d'
+winTitlePrefix = 'BigKeeper_20261116B'
 #winTitlePrefix = 'BigKeeper_20250810a - For Release'
 #This have to match the line in the launcher.bat lines, to keep launcher singleton:
 #taskkill /FI "WINDOWTITLE eq BigKeeper_*" /F
@@ -3565,10 +3565,13 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         # The rows of the project's bigSyncTaskPreset.txt, each a plain list
         # [task types, folder, target type, patterns, extensions], the three plural ones lists.
-        # A line is <TaskType>|<Folder>|<TargetType>|<Pattern>|<extension>, where TaskType, Pattern
-        # and extension take a comma separated list. An ALL row needs no Pattern, a FOLDER row no
-        # extension. A line starting with # is a remark for the user. The project selected in the
-        # comboBox is read, not currentProjWorkPath. An empty list when the project has no preset.
+        # A line is TaskType|Folder|TargetType|Pattern|extension, where TaskType, Pattern and
+        # extension take a comma separated list. Reserved words sit in <> : TargetType is <ALL>,
+        # <FILE> or <FOLDER>, and the TaskType <OTHERS> marks the rows for a Task Type the preset
+        # does not name. An <ALL> row needs no Pattern, a <FOLDER> row no extension. A line
+        # starting with # is a remark for the user. One file serves both the Shot and the Asset
+        # tab. The project selected in the comboBox is read, not currentProjWorkPath. An empty
+        # list when the project has no preset.
         presetFullName = os.path.join(self.subDict[self.selProjPath], bigSyncTaskPresetName)
         self.printEcho(presetFullName)
 
@@ -3587,7 +3590,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             if eachLine == '' or eachLine.startswith('#'):
                 continue
 
-            # Padded to five, so an ALL or FOLDER row can leave its last columns out.
+            # Padded to five, so an <ALL> or <FOLDER> row can leave its last columns out.
             taskTypes, folderName, targetType, patterns, extensions = (eachLine.split('|') + ['', '', '', ''])[:5]
             extensionList = [eachExtension.lstrip('.').lower() for eachExtension in commaListSplit(extensions)]
             presetRows.append([commaListSplit(taskTypes), folderName.strip(), targetType.strip().upper(), commaListSplit(patterns), extensionList])
@@ -3596,11 +3599,12 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         return presetRows
 
-    def bigSyncPresetInfoShow(self, inParent, inTaskPath, inTaskType, inLatestCount, inTaskPresetRows):
+    def bigSyncPresetInfoShow(self, inParent, inTaskPath, inTaskType, inLatestCount, inPresetRows):
         println('\ndef >>>>> bigSyncPresetInfoShow')
 
-        # The [i] of the Send to BigSync window : the bigSyncTaskPreset.txt rows of this Task Type
-        # as a table, each with what it finds in this task right now for the Versions setting the
+        # The [i] of the Send to BigSync window : the bigSyncTaskPreset.txt rows of this tab for
+        # this Task Type, its own rows then the <OTHERS> ones, whichever Folders is picked, as a
+        # table, each with what it finds in this task right now for the Versions setting the
         # window holds. A folder the task does not have reads missing.
         if inLatestCount == 0:
             versionsText = 'All'
@@ -3609,27 +3613,27 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         dialog = QDialog(inParent)
         dialog.setWindowTitle('Pre-Defined Folders')
-        dialog.resize(720, 360)
+        dialog.resize(820, 420)
         dialogLayout = QVBoxLayout(dialog)
 
         headerLabel = QLabel('Task Type :  {}      Versions :  {}\n{}'.format(inTaskType, versionsText, os.path.normpath(os.path.join(self.subDict[self.selProjPath], bigSyncTaskPresetName))))
         headerLabel.setTextFormat(Qt.PlainText)
         dialogLayout.addWidget(headerLabel)
 
-        columnNames = ['Folder', 'Target Type', 'Pattern', 'Extension', 'Found']
-        presetTable = QTableWidget(len(inTaskPresetRows), len(columnNames))
+        columnNames = ['Task Type', 'Folder', 'Target Type', 'Pattern', 'Extension', 'Found']
+        presetTable = QTableWidget(len(inPresetRows), len(columnNames))
         presetTable.setHorizontalHeaderLabels(columnNames)
         presetTable.verticalHeader().setVisible(False)
         presetTable.setEditTriggers(QAbstractItemView.NoEditTriggers)
         presetTable.setSelectionMode(QAbstractItemView.NoSelection)
 
-        for rowIndex, presetRow in enumerate(inTaskPresetRows):
+        for rowIndex, presetRow in enumerate(inPresetRows):
             taskTypes, folderName, targetType, patterns, extensions = presetRow
             if os.path.isdir(os.path.join(inTaskPath, folderName)):
-                foundText = str(len(self.bigSyncTaskItemsCollect(inTaskPath, inTaskType, inLatestCount, [presetRow])))
+                foundText = str(len(self.bigSyncTaskItemsCollect(inTaskPath, inLatestCount, [presetRow])))
             else:
                 foundText = 'missing'
-            for columnIndex, cellText in enumerate([folderName, targetType, ', '.join(patterns), ', '.join(extensions), foundText]):
+            for columnIndex, cellText in enumerate([', '.join(taskTypes), folderName, targetType, ', '.join(patterns), ', '.join(extensions), foundText]):
                 presetTable.setItem(rowIndex, columnIndex, QTableWidgetItem(cellText))
 
         presetTable.resizeColumnsToContents()
@@ -3646,18 +3650,21 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         dialog.exec()
 
 
-    def bigSyncSendAsk(self, inTaskLabel, inTaskPath, inTaskType, inTaskPresetRows, inTargetSites, inThisSite, inDefaultSite):
+    def bigSyncSendAsk(self, inTaskLabel, inTaskPath, inTaskType, inOwnPresetRows, inOthersPresetRows, inTargetSites, inThisSite, inDefaultSite):
         println('\ndef >>>>> bigSyncSendAsk')
 
         # The Send to BigSync window. Returns a plain tuple (target site, folder mode, latest
-        # versions, save mode) : folder mode 'preDefined' or 'entireTask', latest versions 0 for
-        # All, save mode 'no', 'taskFolder' or 'custom'. Cancel, Esc and the window's X return an
-        # empty target site.
-        # The slider on top picks Pre-Defined Folders, the bigSyncTaskPreset.txt rows of this Task
-        # Type, or the Entire Task Folder. A Task Type with no row leaves only the Entire Task
-        # Folder. The Entire Task Folder carries every version, so Versions greys out and reads All.
-        # With no row [i] has nothing to show either and greys out too. Its tooltip tells a project
-        # with no bigSyncTaskPreset.txt from one whose preset has no row for this Task Type.
+        # versions, save mode) : folder mode 'usePreset', 'all' or 'entireTask', latest versions 0
+        # for All, save mode 'no', 'taskFolder' or 'custom'. Cancel, Esc and the window's X return
+        # an empty target site.
+        # The slider on top picks Pre-Defined Folders, the bigSyncTaskPreset.txt rows, or the
+        # Entire Task Folder. Under it Folders picks use Preset, the Task Type's own rows (the
+        # <OTHERS> ones for a Task Type the preset does not name), or All, its own rows and the
+        # <OTHERS> ones. All only opens when the Task Type has both. With no row at all only the
+        # Entire Task Folder is left, and [i] has nothing to show and greys out too. Its tooltip
+        # tells a project with no bigSyncTaskPreset.txt from one whose preset has no row for this
+        # Task Type. The Entire Task Folder carries every folder and version, so Folders and
+        # Versions grey out and Versions reads All.
         dialog = QDialog(self)
         dialog.setWindowTitle('Send to BigSync')
         dialogLayout = QVBoxLayout(dialog)
@@ -3699,8 +3706,33 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             siteLayout.addWidget(siteRadioButton)
         dialogLayout.addWidget(siteGroupBox)
 
+        # One widget holds each row, so the slider can grey it out as a whole. Both row names get
+        # the wider one's width, so the radio buttons of the two rows start in one column.
+        foldersNameLabel = QLabel('Folders :')
+        versionsNameLabel = QLabel('Versions :')
+        nameWidth = max(foldersNameLabel.sizeHint().width(), versionsNameLabel.sizeHint().width())
+        foldersNameLabel.setFixedWidth(nameWidth)
+        versionsNameLabel.setFixedWidth(nameWidth)
+
+        foldersWidget = QWidget()
+        foldersLayout = QHBoxLayout(foldersWidget)
+        foldersLayout.setContentsMargins(0, 0, 0, 0)
+        usePresetRadioButton = QRadioButton('use Preset')
+        usePresetRadioButton.setChecked(True)
+        allFoldersRadioButton = QRadioButton('All')
+        allFoldersRadioButton.setEnabled(inOwnPresetRows != [] and inOthersPresetRows != [])
+        foldersButtonGroup = QButtonGroup(dialog)
+        foldersButtonGroup.addButton(usePresetRadioButton)
+        foldersButtonGroup.addButton(allFoldersRadioButton)
+
+        foldersLayout.addWidget(foldersNameLabel)
+        foldersLayout.addWidget(usePresetRadioButton)
+        foldersLayout.addSpacing(16)
+        foldersLayout.addWidget(allFoldersRadioButton)
+        foldersLayout.addStretch()
+        dialogLayout.addWidget(foldersWidget)
+
         # The spin box sits between the Latest radio button and its word, and greys out with All.
-        # One widget holds the row, so the slider can grey it out as a whole.
         versionsWidget = QWidget()
         versionsLayout = QHBoxLayout(versionsWidget)
         versionsLayout.setContentsMargins(0, 0, 0, 0)
@@ -3715,7 +3747,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         versionsButtonGroup.addButton(allRadioButton)
         latestRadioButton.toggled.connect(latestSpinBox.setEnabled)
 
-        versionsLayout.addWidget(QLabel('Versions :'))
+        versionsLayout.addWidget(versionsNameLabel)
         versionsLayout.addWidget(latestRadioButton)
         versionsLayout.addWidget(latestSpinBox)
         versionsLayout.addWidget(QLabel('Latest'))
@@ -3761,10 +3793,11 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                 labelFont = eachLabel.font()
                 labelFont.setBold(eachValue == inValue)
                 eachLabel.setFont(labelFont)
+            foldersWidget.setEnabled(inValue == 0)
             versionsWidget.setEnabled(inValue == 0)
 
         folderSlider.valueChanged.connect(folderModeRefresh)
-        if inTaskPresetRows == []:
+        if inOwnPresetRows + inOthersPresetRows == []:
             folderSlider.setValue(1)
             folderSlider.setEnabled(False)
             preDefinedLabel.setEnabled(False)
@@ -3775,14 +3808,19 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
                 infoButton.setToolTip('This project has no {}'.format(bigSyncTaskPresetName))
         folderModeRefresh(folderSlider.value())
 
-        infoButton.clicked.connect(lambda : self.bigSyncPresetInfoShow(dialog, inTaskPath, inTaskType, latestCountRead(), inTaskPresetRows))
+        infoButton.clicked.connect(lambda : self.bigSyncPresetInfoShow(dialog, inTaskPath, inTaskType, latestCountRead(), inOwnPresetRows + inOthersPresetRows))
 
         if dialog.exec() != 1:
             self.printEcho('Send to BigSync cancelled')
             return ('', '', 0, '')
 
         targetSite = siteButtonGroup.checkedButton().text()
-        folderMode = ['preDefined', 'entireTask'][folderSlider.value()]
+        if folderSlider.value() == 1:
+            folderMode = 'entireTask'
+        elif allFoldersRadioButton.isChecked():
+            folderMode = 'all'
+        else:
+            folderMode = 'usePreset'
         latestCount = latestCountRead()
         saveMode = saveModes[saveButtonGroup.checkedId()][1]
         self.printEcho('target site : {}   folder mode : {}   latest versions : {}   save mode : {}'.format(targetSite, folderMode, latestCount, saveMode))
@@ -3790,16 +3828,18 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         return (targetSite, folderMode, latestCount, saveMode)
 
 
-    def bigSyncTaskItemsCollect(self, inTaskPath, inTaskType, inLatestCount, inPresetRows):
+    def bigSyncTaskItemsCollect(self, inTaskPath, inLatestCount, inPresetRows):
         println('\ndef >>>>> bigSyncTaskItemsCollect')
 
-        # Every folder and file of one task that the preset rows for its Task Type pick, in preset
-        # order, as full paths. ALL takes the whole folder. FILE and FOLDER take the files or the
-        # folders sitting directly in it whose name matches one of the row's patterns, a FILE also
-        # needing one of the row's extensions (any extension when the row lists none).
-        # In a pattern, shotname is the shot (the asset on the Asset tab), taskname is the task
-        # folder's own name, not its Task Type, #### is a four digit version number and * is
-        # anything. Case is ignored, as Windows does.
+        # Every folder and file of one task that the given preset rows pick, in row order, as full
+        # paths. The caller picks the rows. <ALL> takes the whole folder. <FILE> and <FOLDER> take
+        # the files or the folders sitting directly in it whose name matches one of the row's
+        # patterns, a <FILE> also needing one of the row's extensions (any extension when the row
+        # lists none).
+        # In a pattern, <shotname> and <assetname> are the shot or asset folder's name, each only
+        # ever handed in on its own tab. <taskname> is the task folder's own name, not its Task
+        # Type, #### is a four digit version number and * is anything. Case is ignored in names,
+        # as Windows does.
         # inLatestCount keeps the newest that many version numbers of each row, 0 keeps them all.
         # Every name carrying a kept number goes, so v0012 and v0012_LayerMask, or the .nk and the
         # .ae of one version, count as one version. A name with no #### in its pattern always goes.
@@ -3810,29 +3850,26 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
 
         collectedItems = []
         for taskTypes, folderName, targetType, patterns, extensions in inPresetRows:
-            if inTaskType not in taskTypes:
-                continue
-
             folderPath = os.path.join(taskPath, folderName)
             if not os.path.isdir(folderPath):
                 continue
 
-            if targetType == 'ALL':
+            if targetType == '<ALL>':
                 if folderPath not in collectedItems:
                     collectedItems.append(folderPath)
                 continue
 
-            if targetType not in ['FILE', 'FOLDER']:
+            if targetType not in ['<FILE>', '<FOLDER>']:
                 println('bigSyncTaskPreset.txt : unknown TargetType < {} > for folder < {} >, row skipped.'.format(targetType, folderName))
                 continue
 
             patternRegexes = []
             for eachPattern in patterns:
                 regexText = ''
-                for eachToken in re.split(r'(shotname|taskname|####|\*)', eachPattern):
-                    if eachToken == 'shotname':
+                for eachToken in re.split(r'(<shotname>|<assetname>|<taskname>|####|\*)', eachPattern):
+                    if eachToken in ['<shotname>', '<assetname>']:
                         regexText += re.escape(shotName)
-                    elif eachToken == 'taskname':
+                    elif eachToken == '<taskname>':
                         regexText += re.escape(taskName)
                     elif eachToken == '####':
                         regexText += r'(\d{4})'
@@ -3847,7 +3884,7 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             for eachName in sorted(os.listdir(folderPath)):
                 eachPath = os.path.join(folderPath, eachName)
 
-                if targetType == 'FILE':
+                if targetType == '<FILE>':
                     if not os.path.isfile(eachPath):
                         continue
                     nameStem, nameExtension = os.path.splitext(eachName)
@@ -3998,12 +4035,13 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         println('\ndef >>>>> bigSyncSendAction')
 
         # Send to BigSync for one task. Asks the target site, Pre-Defined Folders or the Entire Task
-        # Folder, how many latest versions and where to keep the send list. Collects the items and
-        # shows them for a last check, with the task's other top folders unticked, where any can be
-        # ticked, unticked or more added. Writes the ticked ones one full path per line, under a few
-        # # remark lines BigSync skips. Then BigSync's sender window opens with the list loaded and
-        # the job name filled in, for the user to check and Send. Open on both tabs for every task :
-        # a Task Type with no row in bigSyncTaskPreset.txt can still send its Entire Task Folder.
+        # Folder, which preset rows, how many latest versions and where to keep the send list.
+        # Collects the items and shows them for a last check, with the task's other top folders
+        # unticked, where any can be ticked, unticked or more added. Writes the ticked ones one full
+        # path per line, under a few # remark lines BigSync skips. Then BigSync's sender window
+        # opens with the list loaded and the job name filled in, for the user to check and Send.
+        # Open on both tabs for every task : a Task Type with no row in bigSyncTaskPreset.txt can
+        # still send its Entire Task Folder.
         for eachPath in [bigSyncConfigPath, bigSyncLocationPath, bigSyncSenderBatPath]:
             if not os.path.isfile(eachPath):
                 QMessageBox.warning(self, 'Ooops!', 'Send to BigSync\n\nBigSync file not found :\n\n{}'.format(eachPath))
@@ -4014,7 +4052,20 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
         shotPath = os.path.dirname(os.path.dirname(taskLocationPath))
         taskLabel = os.path.join(os.path.basename(os.path.dirname(shotPath)), os.path.basename(shotPath), os.path.basename(taskLocationPath))
         taskText = '{}   (Task Type : {})'.format(taskLabel, taskType)
-        taskPresetRows = [eachRow for eachRow in self.bigSyncTaskPresetRead() if taskType in eachRow[0]]
+
+        # One preset serves both tabs : a row whose pattern names the other tab's shot or asset
+        # belongs to that tab. A row naming neither, written the same in both tabs' blocks, counts
+        # once. Of this tab's rows, the Task Type's own and the <OTHERS> ones.
+        if inType == 'typeScene':
+            otherTabToken = '<assetname>'
+        else:
+            otherTabToken = '<shotname>'
+        tabPresetRows = []
+        for eachRow in self.bigSyncTaskPresetRead():
+            if not any(otherTabToken in eachPattern for eachPattern in eachRow[3]) and eachRow not in tabPresetRows:
+                tabPresetRows.append(eachRow)
+        ownPresetRows = [eachRow for eachRow in tabPresetRows if taskType in eachRow[0]]
+        othersPresetRows = [eachRow for eachRow in tabPresetRows if '<OTHERS>' in eachRow[0]]
 
         targetSites, thisSite = self.bigSyncSiteListRead()
 
@@ -4023,25 +4074,34 @@ class BigMainWindow(UiPy.Ui_MainWindow, QMainWindow):
             if eachSite.lower() == thisSite.lower() and eachTarget in targetSites:
                 defaultSite = eachTarget
 
-        targetSite, folderMode, latestCount, saveMode = self.bigSyncSendAsk(taskText, taskLocationPath, taskType, taskPresetRows, targetSites, thisSite, defaultSite)
+        targetSite, folderMode, latestCount, saveMode = self.bigSyncSendAsk(taskText, taskLocationPath, taskType, ownPresetRows, othersPresetRows, targetSites, thisSite, defaultSite)
         if targetSite == '':
             return
 
-        # [from, full path, ticked] rows for the review. Each preset row is collected on its own, so
-        # the review can say which row picked an item. An item two rows pick shows once, under the
-        # first. The task's top folders the preset rows do not name follow, unticked : ticking one
-        # sends that folder whole. Windows ignores case, so the name check does too.
+        # [from, full path, ticked] rows for the review. use Preset takes the Task Type's own rows,
+        # or the <OTHERS> ones when it has none, All takes both. Each row is collected on its own,
+        # so the review can say which row picked an item, written as in the preset. An item two
+        # rows pick shows once, under the first. The task's top folders those rows do not name
+        # follow, unticked : ticking one sends that folder whole. Windows ignores case, so the name
+        # check does too.
         if folderMode == 'entireTask':
             folderText = 'Entire Task Folder'
             itemRows = [[folderText, taskLocationPath, True]]
         else:
-            folderText = 'Pre-Defined Folders'
+            if folderMode == 'usePreset' and ownPresetRows != []:
+                chosenPresetRows = ownPresetRows
+            else:
+                chosenPresetRows = ownPresetRows + othersPresetRows
+            if folderMode == 'usePreset':
+                folderText = 'Pre-Defined Folders (use Preset)'
+            else:
+                folderText = 'Pre-Defined Folders (All)'
             itemRows = []
-            for eachRow in taskPresetRows:
-                for eachPath in self.bigSyncTaskItemsCollect(taskLocationPath, taskType, latestCount, [eachRow]):
+            for eachRow in chosenPresetRows:
+                for eachPath in self.bigSyncTaskItemsCollect(taskLocationPath, latestCount, [eachRow]):
                     if eachPath not in [eachItem[1] for eachItem in itemRows]:
-                        itemRows.append(['{}  {}'.format(eachRow[1], eachRow[2]), eachPath, True])
-            presetFolderNames = [os.path.normcase(eachRow[1]) for eachRow in taskPresetRows]
+                        itemRows.append(['|'.join([','.join(eachRow[0]), eachRow[1], eachRow[2]]), eachPath, True])
+            presetFolderNames = [os.path.normcase(eachRow[1]) for eachRow in chosenPresetRows]
             for eachName in sorted(os.listdir(taskLocationPath), key=str.lower):
                 eachPath = os.path.join(taskLocationPath, eachName)
                 if os.path.isdir(eachPath) and os.path.normcase(eachName) not in presetFolderNames:
